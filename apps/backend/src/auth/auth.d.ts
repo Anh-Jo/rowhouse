@@ -8,7 +8,13 @@ import type { AuthPrismaService } from './auth-prisma.service';
  */
 
 /** Fastify request augmented by AuthGuard with the resolved app user id. */
-export type RequestWithUser = FastifyRequest & { userId?: string };
+export type RequestWithUser = FastifyRequest & {
+  userId?: string;
+  /** Set by WorkspaceMemberGuard after verifying membership. */
+  workspaceId?: string;
+  /** The caller's role in the workspace (owner|admin|member), same source. */
+  workspaceRole?: string;
+};
 
 /**
  * Port the better-auth database hooks delegate to. Implemented by AuthHooks,

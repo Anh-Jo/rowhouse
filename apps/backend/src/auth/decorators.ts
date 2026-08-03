@@ -25,3 +25,16 @@ export const CurrentUser = createParamDecorator(
   (_data: unknown, context: ExecutionContext): string | undefined =>
     getRequestFromContext(context).userId,
 );
+
+/**
+ * Injects the workspace id verified by WorkspaceMemberGuard.
+ *
+ * Same invariant shape as `@CurrentUser()`: present iff the handler is behind
+ * `@UseGuards(WorkspaceMemberGuard)` on a `:workspaceId` route — the guard set
+ * it from a verified membership before the handler runs. Safe to consume as a
+ * non-optional `string` there.
+ */
+export const CurrentWorkspace = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): string | undefined =>
+    getRequestFromContext(context).workspaceId,
+);

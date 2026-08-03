@@ -6,7 +6,10 @@ jest.mock('better-auth/adapters/prisma', () => ({ prismaAdapter: jest.fn() }));
 jest.mock('better-auth/node', () => ({
   fromNodeHeaders: (headers: Record<string, string>) => headers,
 }));
-jest.mock('better-auth/plugins', () => ({ emailOTP: jest.fn() }));
+jest.mock('better-auth/plugins', () => ({
+  emailOTP: jest.fn(),
+  organization: jest.fn(),
+}));
 
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthController } from './auth.controller';

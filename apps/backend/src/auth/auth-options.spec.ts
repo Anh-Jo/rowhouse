@@ -4,6 +4,7 @@
 // the options it receives so the config passed to the plugin can be asserted.
 jest.mock('better-auth/plugins', () => ({
   emailOTP: (options: unknown) => ({ id: 'email-otp', options }),
+  organization: (options: unknown) => ({ id: 'organization', options }),
 }));
 
 import type { BetterAuthOptions } from 'better-auth';
@@ -72,6 +73,12 @@ describe('buildAuthOptions', () => {
   it('trusts the frontend origin', () => {
     const options = buildAuthOptions(buildParams().params);
     expect(options.trustedOrigins).toEqual(['http://localhost:5173']);
+  });
+
+  it('registers the organization plugin (workspaces, decision D9)', () => {
+    const options = buildAuthOptions(buildParams().params);
+    const ids = (options.plugins ?? []).map((p) => (p as { id?: string }).id);
+    expect(ids).toContain('organization');
   });
 
   it('enables email/password auth and self-service account deletion', () => {
