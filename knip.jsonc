@@ -41,16 +41,16 @@
       "entry": [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.stories.tsx",
-        // scaffolding: typed API client + query keys, consumed by the first real feature
-        "src/api/client.ts",
+        // scaffolding: query keys, consumed by the first data-fetching feature
         "src/api/query-keys.ts",
         // scaffolding components: available building blocks, not yet used by a page
         "src/components/EmptyState/EmptyState.tsx",
         "src/components/Icon/Icon.tsx",
         "src/components/Popover/Popover.tsx"
       ],
-      // declared data-fetching/forms stack, wired by the first real feature
-      "ignoreDependencies": ["react-hook-form", "openapi-react-query"]
+      // declared react-query binding for the OpenAPI client, wired by the
+      // first data-fetching feature (the onboarding flow only mutates)
+      "ignoreDependencies": ["openapi-react-query"]
     },
     "packages/ui": {
       // peer requirements of a React component library, not imported directly
