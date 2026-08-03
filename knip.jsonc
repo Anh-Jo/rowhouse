@@ -1,0 +1,57 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["e2e/**/*.spec.ts"]
+    },
+    "apps/backend": {
+      // prisma plugin disabled: it loads prisma.config.ts, which requires DATABASE_URL
+      "prisma": false,
+      "entry": [
+        "src/main.ts",
+        "scripts/generate-contracts.ts",
+        "prisma.config.ts",
+        "prisma/seed.ts",
+        "src/**/*.spec.ts",
+        "test/**/*.ts",
+        // scaffolding: the mail module (and its test double) gets wired by the
+        // first feature that sends mail
+        "src/mail/mail.module.ts",
+        "src/mail/in-memory-mail.provider.ts",
+        // scaffolding: generic helpers (upload parsing, cursor pagination,
+        // Prisma error narrowing) get wired by the first feature that needs
+        // them; their specs already exercise them
+        "src/helpers/multipart.ts",
+        "src/helpers/pagination.ts",
+        "src/helpers/prisma-errors.ts"
+      ],
+      "ignoreDependencies": [
+        // runtime peers: fastify is required by @nestjs/platform-fastify, pg by @prisma/adapter-pg
+        "fastify",
+        "pg",
+        // referenced by string in the pino transport (logger.module.ts)
+        "pino-pretty"
+      ]
+    },
+    "apps/webapp": {
+      "entry": [
+        "src/**/*.test.{ts,tsx}",
+        "src/**/*.stories.tsx",
+        // scaffolding: typed API client + query keys, consumed by the first real feature
+        "src/api/client.ts",
+        "src/api/query-keys.ts",
+        // scaffolding components: available building blocks, not yet used by a page
+        "src/components/EmptyState/EmptyState.tsx",
+        "src/components/Icon/Icon.tsx",
+        "src/components/Popover/Popover.tsx"
+      ],
+      // declared data-fetching/forms stack, wired by the first real feature
+      "ignoreDependencies": ["react-hook-form", "openapi-react-query"]
+    },
+    "packages/ui": {
+      // peer requirements of a React component library, not imported directly
+      "ignoreDependencies": ["react-dom", "@types/react-dom"]
+    },
+    "packages/*": {}
+  }
+}

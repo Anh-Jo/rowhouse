@@ -1,0 +1,17 @@
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.admin-layout__main {
+  flex: 1;
+  margin-left: calc(var(--sidebar-width) + var(--sidebar-inset) * 2);
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-layout__content {
+  flex: 1;
+  padding: var(--space-6);
+  overflow-y: auto;
+}

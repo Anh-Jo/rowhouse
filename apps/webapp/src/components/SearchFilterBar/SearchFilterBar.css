@@ -1,0 +1,20 @@
+.search-filter-bar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.search-filter-bar__search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.search-filter-bar__filters {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.search-filter-bar__filters .select-field {
+  min-width: 160px;
+}

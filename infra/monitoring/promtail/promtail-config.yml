@@ -1,0 +1,46 @@
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Collect Docker container logs (for Coolify / production)
+  - job_name: docker
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker
+          __path__: /var/lib/docker/containers/*/*-json.log
+
+    pipeline_stages:
+      # Parse Docker JSON log format
+      - docker: {}
+
+      # Parse Pino JSON from log line
+      - json:
+          expressions:
+            level: level
+            msg: msg
+            req_method: req.method
+            req_url: req.url
+            res_status: res.statusCode
+            response_time: responseTime
+            request_id: req.id
+
+      - labels:
+          level:
+          req_method:
+          res_status:
+
+      # Map Pino numeric levels to human-readable
+      - template:
+          source: level
+          template: '{{ if eq .Value "10" }}trace{{ else if eq .Value "20" }}debug{{ else if eq .Value "30" }}info{{ else if eq .Value "40" }}warn{{ else if eq .Value "50" }}error{{ else if eq .Value "60" }}fatal{{ else }}{{ .Value }}{{ end }}'
+
+      - labels:
+          level:

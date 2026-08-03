@@ -1,0 +1,74 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.badge--sm {
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.badge--md {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+/* Variant colors */
+.badge--default {
+  background-color: var(--color-border-light);
+  color: var(--color-text);
+}
+
+.badge--success {
+  background-color: var(--color-success-light);
+  color: var(--color-success-dark);
+}
+
+.badge--warning {
+  background-color: var(--color-warning-light);
+  color: var(--color-warning-dark);
+}
+
+.badge--danger {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+}
+
+.badge--info {
+  background-color: var(--color-info-light);
+  color: var(--color-info-dark);
+}
+
+.badge--muted {
+  background-color: var(--color-border-light);
+  color: var(--color-muted);
+}
+
+/* Contract type colors */
+.badge--emprunteur {
+  background-color: var(--color-emprunteur-bg);
+  color: var(--color-emprunteur);
+}
+
+.badge--rc-pro {
+  background-color: var(--color-rc-pro-bg);
+  color: var(--color-rc-pro);
+}
+
+.badge--sante {
+  background-color: var(--color-sante-bg);
+  color: var(--color-sante);
+}
+
+.badge--prevoyance {
+  background-color: var(--color-prevoyance-bg);
+  color: var(--color-prevoyance);
+}
+
+.badge--decennale {
+  background-color: var(--color-decennale-bg);
+  color: var(--color-decennale);
+}

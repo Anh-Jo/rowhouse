@@ -1,0 +1,48 @@
+name: E2E Back Only
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  backend-e2e:
+    name: E2E Tests (PGlite)
+    if: contains(github.event.pull_request.labels.*.name, 'e2e back')
+    runs-on: ubuntu-latest
+
+    services:
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 4020:1025
+          - 4021:8025
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      FRONTEND_URL: http://localhost:5173
+      SMTP_HOST: localhost
+      SMTP_PORT: 4020
+      SMTP_SECURE: false
+      MAIL_FROM: noreply@starter.local
+      MAILPIT_API: http://localhost:4021/api/v1
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter backend run database:generate
+
+      - name: Run E2E tests
+        run: pnpm --filter backend run test:e2e

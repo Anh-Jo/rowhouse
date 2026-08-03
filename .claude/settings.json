@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r \".tool_input.file_path // .tool_response.filePath // empty\"); { [ -z \"$f\" ] || [ ! -f \"$f\" ]; } && exit 0\ncase \"$f\" in */generated/*) exit 0;; esac\nnpx prettier --write --ignore-unknown \"$f\" >/dev/null 2>&1\ncase \"$f\" in\n  */apps/*/src/*.ts|*/apps/*/src/*.tsx|*/apps/*/test/*.ts|*/apps/*/scripts/*.ts|*/packages/*/src/*.ts|*/packages/*/src/*.tsx)\n    out=$( (cd \"$(dirname \"$f\")\" && npx eslint --fix \"$f\") 2>&1 ) || { printf \"%s\\n\" \"$out\" >&2; exit 2; }\n    ;;\nesac\nexit 0",
+            "timeout": 60,
+            "statusMessage": "eslint --fix + prettier"
+          }
+        ]
+      }
+    ]
+  }
+}

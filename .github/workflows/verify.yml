@@ -1,0 +1,51 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Codegen, Types, Lint & Tests
+    runs-on: ubuntu-latest
+
+    # No database service here on purpose: contracts:export creates the Nest
+    # app without init(), so nothing connects at codegen time. The day a module
+    # opens a connection at bootstrap (auth, GraphQL schema build…), add a
+    # postgres service + the env vars the AppModule validates at boot.
+    #
+    # If you start committing openapi.json (a client that builds without a
+    # runnable backend — e.g. a mobile CI build), also add a drift check after
+    # `pnpm verify`:  git diff --exit-code -- apps/backend/openapi.json
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter backend run database:generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - name: Commit messages follow Conventional Commits
+        if: github.event_name == 'pull_request'
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      # codegen re-exports the OpenAPI spec and regenerates the frontend API
+      # types before typechecking — a drifting contract fails the gate here.
+      # knip then fails on dead files, unused exports and unused dependencies.
+      - name: Verify (codegen + check-types + lint + tests + knip)
+        run: pnpm verify

@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Local dev: NestJS runs on the host
+  - job_name: 'rowhouse-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['host.docker.internal:3000']
+        labels:
+          app: 'rowhouse'
+          env: 'dev'
+
+  # Production (Coolify): uncomment and replace target
+  # - job_name: 'rowhouse-api-prod'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['api:3000']
+  #       labels:
+  #         app: 'rowhouse'
+  #         env: 'production'

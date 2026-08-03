@@ -1,0 +1,38 @@
+name: rowhouse-dev
+
+services:
+  database:
+    image: postgres:18.3
+    container_name: rowhouse-dev-postgres
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: rowhouse
+      POSTGRES_PASSWORD: rowhouse
+      POSTGRES_DB: rowhouse
+    ports:
+      - "3010:5432"
+    healthcheck:
+      # -h 127.0.0.1 forces a TCP check: the temporary server used during the
+      # first-run init listens on the unix socket only, so the container stays
+      # "unhealthy" until the real server is up. Lets `up --wait` block until
+      # migrations can safely connect.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U rowhouse -d rowhouse"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  mailer:
+    image: axllent/mailpit:latest
+    container_name: rowhouse-dev-mailer
+    restart: unless-stopped
+    ports:
+      - "3020:1025"
+      - "3021:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  postgres_data:

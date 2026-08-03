@@ -1,0 +1,123 @@
+.tahoe-sidebar {
+  position: fixed;
+  top: var(--sidebar-inset);
+  left: var(--sidebar-inset);
+  bottom: var(--sidebar-inset);
+  width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(var(--sidebar-blur));
+  -webkit-backdrop-filter: blur(var(--sidebar-blur));
+  border-radius: var(--sidebar-radius-outer);
+  border: var(--sidebar-border-tahoe);
+  box-shadow: var(--sidebar-shadow-tahoe);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.tahoe-sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tahoe-sidebar__brand {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tahoe-sidebar__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.tahoe-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  text-decoration: none;
+}
+
+.tahoe-sidebar__link:hover {
+  background-color: var(--color-border-light);
+  color: var(--color-text);
+}
+
+.tahoe-sidebar__link--active {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.tahoe-sidebar__link--active:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-text-inverse);
+}
+
+.tahoe-sidebar__bottom {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tahoe-sidebar__user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  overflow: hidden;
+}
+
+.tahoe-sidebar__user-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tahoe-sidebar__user-email {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tahoe-sidebar__logout {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  width: 100%;
+  text-align: left;
+}
+
+.tahoe-sidebar__logout:hover {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+}

@@ -1,0 +1,28 @@
+# Test stack: PostgreSQL + Mailpit on dedicated ports so dev and test can run in parallel.
+# Usage: docker compose -f docker/compose.test.yml up -d
+# Stop:  docker compose -f docker/compose.test.yml down
+
+name: rowhouse-test
+
+services:
+  database:
+    image: postgres:18.3
+    container_name: rowhouse-test-postgres
+    restart: "no"
+    environment:
+      POSTGRES_USER: rowhouse
+      POSTGRES_PASSWORD: rowhouse
+      POSTGRES_DB: rowhouse
+    ports:
+      - "4010:5432"
+
+  mailer:
+    image: axllent/mailpit:latest
+    container_name: rowhouse-test-mailer
+    restart: "no"
+    ports:
+      - "4020:1025"
+      - "4021:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1

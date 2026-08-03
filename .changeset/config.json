@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.3/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    { "repo": "Anh-Jo/nest-starter-pack" }
+  ],
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["@repo/ui", "@repo/eslint-config", "@repo/typescript-config"]
+}

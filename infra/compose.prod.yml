@@ -1,0 +1,124 @@
+# Production stack — API + webapp + PostgreSQL + observability (Prometheus/Grafana/Loki).
+# Copy infra/.env.prod.example to infra/.env before running:
+#   cp infra/.env.prod.example infra/.env
+#   docker compose -f infra/compose.prod.yml up -d --build
+name: rowhouse-prod
+
+services:
+  postgres:
+    image: postgres:18.3
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rowhouse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in infra/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-rowhouse}
+    volumes:
+      # postgres 18+: mount the parent dir (data lives in a versioned subdir)
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-rowhouse} -d ${POSTGRES_DB:-rowhouse}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/backend.Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rowhouse}:${POSTGRES_PASSWORD:?set it in infra/.env}@postgres:5432/${POSTGRES_DB:-rowhouse}
+      FRONTEND_URL: ${FRONTEND_URL:?public webapp URL, set it in infra/.env}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    ports:
+      - '${API_PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Escape hatch — migrations normally run in the api container's entrypoint on
+  # every boot; use this one-off runner to migrate without (re)starting the API:
+  #   docker compose -f infra/compose.prod.yml run --rm migrate
+  migrate:
+    build:
+      context: ..
+      dockerfile: infra/backend.Dockerfile
+      target: build
+    profiles: ['tools']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rowhouse}:${POSTGRES_PASSWORD:?set it in infra/.env}@postgres:5432/${POSTGRES_DB:-rowhouse}
+    command: pnpm --filter backend exec prisma migrate deploy
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  webapp:
+    build:
+      context: ..
+      dockerfile: infra/webapp.Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:?public API URL, set it in infra/.env}
+    restart: unless-stopped
+    ports:
+      - '${WEBAPP_PORT:-8080}:80'
+    depends_on:
+      - api
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+
+  loki:
+    image: grafana/loki:latest
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:latest
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - '${GRAFANA_PORT:-5030}:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set it in infra/.env}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:

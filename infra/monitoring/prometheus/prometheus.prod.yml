@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Same job name as the local config so the Grafana dashboards work unchanged
+  - job_name: 'rowhouse-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['api:3000']
+        labels:
+          app: 'rowhouse'
+          env: 'production'
