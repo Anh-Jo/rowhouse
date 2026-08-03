@@ -7,6 +7,21 @@ import { z } from 'zod';
  */
 export const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1).describe('PostgreSQL connection string'),
+  AUTH_DATABASE_URL: z
+    .string()
+    .min(1)
+    .describe('PostgreSQL connection string for the better-auth database'),
+  BETTER_AUTH_SECRET: z
+    .string()
+    .min(32)
+    .describe(
+      'Secret used by better-auth to sign sessions/tokens (min 32 chars)',
+    ),
+  BETTER_AUTH_URL: z
+    .url()
+    .describe(
+      'Public base URL of the better-auth server (used to build links)',
+    ),
   PORT: z.coerce
     .number()
     .int()
@@ -21,6 +36,18 @@ export const EnvSchema = z.object({
     .default(false)
     .describe(
       'Trust X-Forwarded-For for client-IP resolution (enable in prod behind a reverse proxy)',
+    ),
+  GOOGLE_CLIENT_ID: z
+    .string()
+    .optional()
+    .describe(
+      'Google OAuth client ID; enables Google SSO when set with the secret',
+    ),
+  GOOGLE_CLIENT_SECRET: z
+    .string()
+    .optional()
+    .describe(
+      'Google OAuth client secret; enables Google SSO when set with the ID',
     ),
   SMTP_HOST: z
     .string()
@@ -42,7 +69,7 @@ export const EnvSchema = z.object({
   SMTP_PASS: z.string().optional().describe('SMTP password'),
   MAIL_FROM: z
     .string()
-    .default('noreply@starter.local')
+    .default('noreply@rowhouse.local')
     .describe('Default From address for outgoing mail'),
   MAILPIT_API: z
     .url()

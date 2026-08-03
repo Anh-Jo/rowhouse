@@ -6,6 +6,7 @@ import {
 } from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
+import { Public } from '@/auth/decorators';
 import { PrismaHealthIndicator } from './prisma-health.indicator';
 
 @ApiTags('Health')
@@ -18,7 +19,10 @@ export class HealthController {
     private readonly memory: MemoryHealthIndicator,
   ) {}
 
+  // `@Public()` on the handler keeps the protected-by-default regime for any
+  // future route added to this controller.
   @Get()
+  @Public()
   @HealthCheck()
   check() {
     return this.health.check([

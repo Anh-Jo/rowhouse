@@ -20,11 +20,16 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      # e2e run on PGlite (no live Postgres) — these only need to be present
+      # and valid for EnvSchema/Prisma generate, no connection is opened.
+      AUTH_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_auth
+      BETTER_AUTH_SECRET: ci-better-auth-secret-0123456789-abcdef
+      BETTER_AUTH_URL: http://localhost:3000
       FRONTEND_URL: http://localhost:5173
       SMTP_HOST: localhost
       SMTP_PORT: 4020
       SMTP_SECURE: false
-      MAIL_FROM: noreply@starter.local
+      MAIL_FROM: noreply@rowhouse.local
       MAILPIT_API: http://localhost:4021/api/v1
       NODE_ENV: test
 

@@ -2,6 +2,9 @@ import { EnvStore } from './env';
 
 const BASE_ENV = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+  AUTH_DATABASE_URL: 'postgresql://user:pass@localhost:5432/auth',
+  BETTER_AUTH_SECRET: 'a'.repeat(32),
+  BETTER_AUTH_URL: 'http://localhost:3000',
   FRONTEND_URL: 'http://localhost:5173',
 };
 
@@ -16,14 +19,21 @@ describe('EnvStore', () => {
         SMTP_SECURE: 'true',
         LOG_LEVEL: 'warn',
         TRUST_PROXY: 'true',
+        GOOGLE_CLIENT_ID: 'google-id',
+        GOOGLE_CLIENT_SECRET: 'google-secret',
       }).init();
 
       expect(env.DATABASE_URL).toBe(BASE_ENV.DATABASE_URL);
+      expect(env.AUTH_DATABASE_URL).toBe(BASE_ENV.AUTH_DATABASE_URL);
+      expect(env.BETTER_AUTH_SECRET).toBe(BASE_ENV.BETTER_AUTH_SECRET);
+      expect(env.BETTER_AUTH_URL).toBe(BASE_ENV.BETTER_AUTH_URL);
       expect(env.PORT).toBe(4000);
       expect(env.SMTP_PORT).toBe(1025);
       expect(env.SMTP_SECURE).toBe(true);
       expect(env.LOG_LEVEL).toBe('warn');
       expect(env.TRUST_PROXY).toBe(true);
+      expect(env.GOOGLE_CLIENT_ID).toBe('google-id');
+      expect(env.GOOGLE_CLIENT_SECRET).toBe('google-secret');
     });
 
     it('applies defaults for unset variables', () => {
@@ -32,7 +42,7 @@ describe('EnvStore', () => {
       expect(env.PORT).toBe(3000);
       expect(env.SMTP_SECURE).toBe(false);
       expect(env.TRUST_PROXY).toBe(false);
-      expect(env.MAIL_FROM).toBe('noreply@starter.local');
+      expect(env.MAIL_FROM).toBe('noreply@rowhouse.local');
       expect(env.SMTP_HOST).toBeUndefined();
       expect(env.LOG_LEVEL).toBeUndefined();
     });
@@ -65,6 +75,12 @@ describe('EnvStore', () => {
       expect(() =>
         new EnvStore({ ...BASE_ENV, TRUST_PROXY: 'maybe' }).init(),
       ).toThrow(/TRUST_PROXY/);
+      expect(() =>
+        new EnvStore({ ...BASE_ENV, BETTER_AUTH_SECRET: 'too-short' }).init(),
+      ).toThrow(/BETTER_AUTH_SECRET/);
+      expect(() =>
+        new EnvStore({ ...BASE_ENV, BETTER_AUTH_URL: 'not-a-url' }).init(),
+      ).toThrow(/BETTER_AUTH_URL/);
       expect(() =>
         new EnvStore({ ...BASE_ENV, FRONTEND_URL: 'not-a-url' }).init(),
       ).toThrow(/FRONTEND_URL/);

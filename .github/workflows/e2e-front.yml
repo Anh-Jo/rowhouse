@@ -34,11 +34,14 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      AUTH_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_auth
+      BETTER_AUTH_SECRET: ci-better-auth-secret-0123456789-abcdef
+      BETTER_AUTH_URL: http://localhost:3000
       FRONTEND_URL: http://localhost:4173
       SMTP_HOST: localhost
       SMTP_PORT: 4020
       SMTP_SECURE: false
-      MAIL_FROM: noreply@starter.local
+      MAIL_FROM: noreply@rowhouse.local
       NODE_ENV: test
 
     steps:
@@ -60,8 +63,14 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter backend run database:generate
 
-      - name: Run database migrations
-        run: pnpm --filter backend exec prisma migrate deploy
+      # The postgres service only creates the app database; the auth database
+      # lives in the same instance and must exist before its migrations run.
+      - name: Create auth database
+        run: |
+          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "CREATE DATABASE ci_auth OWNER ci;"
+
+      - name: Run database migrations (app + auth)
+        run: pnpm --filter backend run database:migrate
 
       - name: Seed database
         run: cd apps/backend && npx ts-node prisma/seed.ts

@@ -12,13 +12,24 @@ jobs:
     runs-on: ubuntu-latest
 
     # No database service here on purpose: contracts:export creates the Nest
-    # app without init(), so nothing connects at codegen time. The day a module
-    # opens a connection at bootstrap (auth, GraphQL schema build…), add a
-    # postgres service + the env vars the AppModule validates at boot.
+    # app without init(), so nothing connects at codegen time — the auth module
+    # reads env vars when the module loads but only opens connections on first
+    # query. The day a module truly connects at bootstrap (GraphQL schema
+    # build…), add a postgres service.
     #
     # If you start committing openapi.json (a client that builds without a
     # runnable backend — e.g. a mobile CI build), also add a drift check after
     # `pnpm verify`:  git diff --exit-code -- apps/backend/openapi.json
+
+    # EnvSchema is validated when contracts:export boots the AppModule, so every
+    # required var must be present and well-formed — values are placeholders,
+    # nothing is contacted (same convention as backend-e2e.yml).
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      AUTH_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_auth
+      BETTER_AUTH_SECRET: ci-better-auth-secret-0123456789-abcdef
+      BETTER_AUTH_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:5173
 
     steps:
       - uses: actions/checkout@v4
@@ -35,10 +46,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
+      # Generates both clients (app + auth). `generate` never connects — the
+      # job-level placeholder URLs are enough.
+      - name: Generate Prisma clients
         run: pnpm --filter backend run database:generate
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
       - name: Commit messages follow Conventional Commits
         if: github.event_name == 'pull_request'

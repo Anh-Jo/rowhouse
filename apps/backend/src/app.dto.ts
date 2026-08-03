@@ -11,3 +11,11 @@ const HelloResponseSchema = z.object({
 });
 
 export class HelloResponseDto extends createZodDto(HelloResponseSchema) {}
+
+/** The authenticated caller's app profile (mirror of the better-auth user). */
+const MeResponseSchema = z.object({
+  id: z.string().describe('User id (same as the better-auth user id)'),
+  displayName: z.string().describe('Display name (defaults to sign-up name)'),
+});
+
+export class MeResponseDto extends createZodDto(MeResponseSchema) {}

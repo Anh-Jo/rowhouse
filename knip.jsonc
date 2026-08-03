@@ -1,5 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  // invoked at container start by infra/backend-entrypoint.sh (see the runner
+  // stage of infra/backend.Dockerfile), never imported — invisible to knip.
+  "ignore": ["infra/ensure-auth-db.cjs"],
   "workspaces": {
     ".": {
       "entry": ["e2e/**/*.spec.ts"]
@@ -14,10 +17,8 @@
         "prisma/seed.ts",
         "src/**/*.spec.ts",
         "test/**/*.ts",
-        // scaffolding: the mail module (and its test double) gets wired by the
-        // first feature that sends mail
-        "src/mail/mail.module.ts",
-        "src/mail/in-memory-mail.provider.ts",
+        // consumed only by `@better-auth/cli generate` (database:generate-schema:auth)
+        "src/auth/auth.cli.ts",
         // scaffolding: generic helpers (upload parsing, cursor pagination,
         // Prisma error narrowing) get wired by the first feature that needs
         // them; their specs already exercise them
@@ -30,7 +31,10 @@
         "fastify",
         "pg",
         // referenced by string in the pino transport (logger.module.ts)
-        "pino-pretty"
+        "pino-pretty",
+        // invoked via `npx @better-auth/cli` in database:generate-schema:auth
+        // (binary name `better-auth`, not detectable by knip's script parser)
+        "@better-auth/cli"
       ]
     },
     "apps/webapp": {
