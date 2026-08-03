@@ -52,8 +52,9 @@ model Datasource {
   database    String
   /// TLS on the target connection. Required by default (decision D11);
   /// DISABLE must be an explicit, visible choice (dev databases).
-  sslMode     DatasourceSslMode      @default(REQUIRE)
-  credentials DatasourceCredential[]
+  sslMode      DatasourceSslMode      @default(REQUIRE)
+  credentials  DatasourceCredential[]
+  schemaTables SchemaTable[]
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 
@@ -133,5 +134,44 @@ enum AuditAction {
 enum AuditStatus {
   OK
   ERROR
+}
+
+/// One table of a target database, as last introspected. Structure columns
+/// are overwritten by every re-sync; `description` is team-authored metadata
+/// and survives syncs — that split is the module's core contract.
+model SchemaTable {
+  id           String         @id @default(cuid())
+  datasource   Datasource     @relation(fields: [datasourceId], references: [id], onDelete: Cascade)
+  datasourceId String
+  schema       String
+  name         String
+  description  String?
+  columns      SchemaColumn[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([datasourceId, schema, name])
+  @@index([datasourceId])
+}
+
+/// One column of an introspected table. Same split as SchemaTable:
+/// structure fields are sync-owned; `description` and `isPii` are
+/// team-owned and survive re-syncs. `isPii` feeds P2's masking.
+model SchemaColumn {
+  id           String      @id @default(cuid())
+  table        SchemaTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableId      String
+  name         String
+  dataType     String
+  isNullable   Boolean
+  isPrimaryKey Boolean
+  refTable     String?
+  refColumn    String?
+  position     Int
+  description  String?
+  isPii        Boolean     @default(false)
+
+  @@unique([tableId, name])
+  @@index([tableId])
 }
 
