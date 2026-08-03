@@ -27,9 +27,8 @@
         "src/helpers/prisma-errors.ts"
       ],
       "ignoreDependencies": [
-        // runtime peers: fastify is required by @nestjs/platform-fastify, pg by @prisma/adapter-pg
+        // runtime peer: fastify is required by @nestjs/platform-fastify
         "fastify",
-        "pg",
         // referenced by string in the pino transport (logger.module.ts)
         "pino-pretty",
         // invoked via `npx @better-auth/cli` in database:generate-schema:auth

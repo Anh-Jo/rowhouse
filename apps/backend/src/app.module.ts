@@ -11,6 +11,7 @@ import { RequestTimingInterceptor } from './interceptors/request-timing.intercep
 import { LoggerModule } from './logger/logger.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
+import { DatasourceModule } from './modules/datasource/datasource.module';
 import { ProjectModule } from './modules/project/project.module';
 import { MetricsInterceptor } from './modules/metrics/metrics.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
@@ -23,6 +24,7 @@ import { PrismaModule } from './prisma/prisma.module';
     HealthModule,
     MetricsModule,
     ProjectModule,
+    DatasourceModule,
     ThrottlerModule.forRoot({
       skipIf: () => process.env['NODE_ENV'] === 'test',
       throttlers: [{ ttl: 60_000, limit: 60 }],

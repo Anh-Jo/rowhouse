@@ -17,6 +17,21 @@ export const EnvSchema = z.object({
     .describe(
       'Secret used by better-auth to sign sessions/tokens (min 32 chars)',
     ),
+  CREDENTIALS_KEK: z
+    .string()
+    .refine(
+      (value) => {
+        try {
+          return Buffer.from(value, 'base64').length === 32;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'CREDENTIALS_KEK must be 32 bytes, base64-encoded' },
+    )
+    .describe(
+      'Key-encryption key wrapping per-credential DEKs (envelope encryption, decision D10). Dev/P0 provider reads it from env; production swaps in a KMS-backed KeyProvider. Generate: openssl rand -base64 32',
+    ),
   BETTER_AUTH_URL: z
     .url()
     .describe(
