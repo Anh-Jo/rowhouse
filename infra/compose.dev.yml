@@ -26,6 +26,39 @@ services:
       # Creates the rowhouse_auth database on a fresh data volume (runs once).
       - ./create-auth-db.sql:/docker-entrypoint-initdb.d/create-auth-db.sql:ro
 
+  # Realistic TARGET database for developing/testing Rowhouse's explorer and
+  # connection guardrails — a stand-in for a customer's production DB, strictly
+  # separate from the app's own database above (app DB vs target DBs are
+  # different worlds, master plan decision D8). Seeded on first boot by
+  # infra/sample-db/init/: e-commerce schema → rowhouse_ro / rowhouse_rw roles
+  # (the exact pair the connect flow expects, decisions D2/D11) → deterministic
+  # data.
+  sample-db:
+    image: postgres:18.3
+    container_name: rowhouse-dev-sample-db
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: sampledb
+      POSTGRES_PASSWORD: sampledb
+      POSTGRES_DB: sampledb
+    ports:
+      - "3011:5432"
+    healthcheck:
+      # Same TCP-forced check as the app database above: `up --wait` must not
+      # unblock until the init scripts have run and the real server listens.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U sampledb -d sampledb"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    volumes:
+      # Entrypoint runs *.sql in lexicographic order on a FRESH volume only —
+      # to re-seed: docker volume rm rowhouse-dev_sample_db_data (container stopped).
+      - ./sample-db/init:/docker-entrypoint-initdb.d:ro
+      # postgres 18+: mount the parent dir (data lives in a versioned subdir)
+      - sample_db_data:/var/lib/postgresql
+
   mailer:
     image: axllent/mailpit:latest
     container_name: rowhouse-dev-mailer
@@ -39,3 +72,4 @@ services:
 
 volumes:
   postgres_data:
+  sample_db_data:
