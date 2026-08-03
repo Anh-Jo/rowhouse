@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { DatasourceService } from './datasource.service';
 import type { PrismaService } from '@/prisma/prisma.service';
-import type { CredentialVault } from './vault/credential-vault.service';
+import type { AuditService } from '@/audit/audit.service';
+import type { CredentialVault } from '@/target-db/vault/credential-vault.service';
 import type { ConnectionProbe } from './connection-probe.service';
 import type { CreateDatasourceDto } from './datasource.dto';
 
@@ -93,13 +94,16 @@ function buildService(overrides?: {
     probeFn.mockResolvedValueOnce(result);
   }
   const probe = { probe: probeFn } as unknown as ConnectionProbe;
+  const auditRecord = jest.fn().mockResolvedValue({});
+  const audit = { record: auditRecord } as unknown as AuditService;
 
   return {
-    service: new DatasourceService(prisma, vault, probe),
+    service: new DatasourceService(prisma, vault, probe, audit),
     datasourceCreate,
     sealSecret,
     openSecret,
     probeFn,
+    auditRecord,
   };
 }
 
@@ -148,11 +152,26 @@ describe('DatasourceService', () => {
 
   describe('testConnection', () => {
     it('passes when both roles connect and read-only holds no write grants', async () => {
-      const { service, openSecret, probeFn } = buildService();
+      const { service, openSecret, probeFn, auditRecord } = buildService();
 
-      const result = await service.testConnection('ws-1', 'proj-1', 'ds-1');
+      const result = await service.testConnection(
+        'ws-1',
+        'proj-1',
+        'ds-1',
+        'user-1',
+      );
 
       expect(result).toEqual({ ok: true, problems: [] });
+      // One journal entry per probed role (decision D3).
+      expect(auditRecord).toHaveBeenCalledTimes(2);
+      expect(auditRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CONNECTION_TEST',
+          actorId: 'user-1',
+          role: 'READ_ONLY',
+          status: 'OK',
+        }),
+      );
       // Secrets were unsealed just-in-time, one per role, and handed to the
       // probe — never to the response.
       expect(openSecret).toHaveBeenCalledTimes(2);
@@ -174,12 +193,41 @@ describe('DatasourceService', () => {
         ],
       });
 
-      const result = await service.testConnection('ws-1', 'proj-1', 'ds-1');
+      const result = await service.testConnection(
+        'ws-1',
+        'proj-1',
+        'ds-1',
+        'user-1',
+      );
 
       expect(result.ok).toBe(false);
       expect(result.problems).toEqual([
         expect.stringContaining('READ_ONLY: this role can write'),
       ]);
+    });
+
+    it('journals a failed guardrail as an ERROR audit event', async () => {
+      const { service, auditRecord } = buildService({
+        probeResults: [
+          { connected: true, canWrite: true },
+          { connected: true, canWrite: false },
+        ],
+      });
+
+      await service.testConnection('ws-1', 'proj-1', 'ds-1', 'user-1');
+
+      expect(auditRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: 'READ_ONLY',
+          status: 'ERROR',
+          errorMessage: expect.stringContaining(
+            'this role can write',
+          ) as string,
+        }),
+      );
+      expect(auditRecord).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'READ_WRITE', status: 'OK' }),
+      );
     });
 
     it('aggregates connection failures per role', async () => {
@@ -190,7 +238,12 @@ describe('DatasourceService', () => {
         ],
       });
 
-      const result = await service.testConnection('ws-1', 'proj-1', 'ds-1');
+      const result = await service.testConnection(
+        'ws-1',
+        'proj-1',
+        'ds-1',
+        'user-1',
+      );
 
       expect(result.ok).toBe(false);
       expect(result.problems).toEqual([
@@ -207,7 +260,7 @@ describe('DatasourceService', () => {
       });
 
       await expect(
-        service.testConnection('ws-1', 'proj-1', 'ds-1'),
+        service.testConnection('ws-1', 'proj-1', 'ds-1', 'user-1'),
       ).rejects.toThrow(BadRequestException);
     });
   });

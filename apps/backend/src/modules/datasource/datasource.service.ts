@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
+import { AuditService } from '@/audit/audit.service';
 import {
   clampLimit,
   type CursorPage,
@@ -18,7 +19,7 @@ import type {
 } from '../../generated/prisma/client';
 import type { CreateDatasourceDto } from './datasource.dto';
 import { ConnectionProbe } from './connection-probe.service';
-import { CredentialVault } from './vault/credential-vault.service';
+import { CredentialVault } from '@/target-db/vault/credential-vault.service';
 
 /** A datasource joined with its credential rows (secrets stay sealed). */
 export type DatasourceWithCredentials = Datasource & {
@@ -31,6 +32,7 @@ export class DatasourceService {
     private readonly prisma: PrismaService,
     private readonly vault: CredentialVault,
     private readonly probe: ConnectionProbe,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -149,6 +151,7 @@ export class DatasourceService {
     workspaceId: string,
     projectId: string,
     datasourceId: string,
+    actorId: string,
   ): Promise<{ ok: boolean; problems: string[] }> {
     const datasource = await this.get(workspaceId, projectId, datasourceId);
     const problems: string[] = [];
@@ -160,6 +163,7 @@ export class DatasourceService {
         // covers rows manipulated outside the app.
         throw new BadRequestException(`Missing ${role} credential`);
       }
+      const startedAt = Date.now();
       const password = await this.vault.openSecret({
         secretSealed: Buffer.from(credential.secretSealed),
         dekWrapped: Buffer.from(credential.dekWrapped),
@@ -177,6 +181,7 @@ export class DatasourceService {
         { checkWriteCapability: role === 'READ_ONLY' },
       );
 
+      const problemsBefore = problems.length;
       if (!result.connected) {
         problems.push(
           `${role}: connection failed${result.error ? ` — ${result.error}` : ''}`,
@@ -188,6 +193,23 @@ export class DatasourceService {
           'READ_ONLY: this role can write (CREATE or INSERT/UPDATE/DELETE grants detected). Use a truly read-only role — see the generated SQL snippet in the connect flow',
         );
       }
+
+      // One journal entry per probed role (decision D3) — a failed guardrail
+      // check is an ERROR entry, so "who tried to connect what, and when"
+      // includes the misconfigurations.
+      await this.audit.record({
+        workspaceId,
+        actorId,
+        datasourceId: datasource.id,
+        role,
+        action: 'CONNECTION_TEST',
+        durationMs: Date.now() - startedAt,
+        status: problems.length === problemsBefore ? 'OK' : 'ERROR',
+        errorMessage:
+          problems.length > problemsBefore
+            ? problems[problems.length - 1]
+            : undefined,
+      });
     }
 
     return { ok: problems.length === 0, problems };

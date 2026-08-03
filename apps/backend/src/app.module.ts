@@ -5,6 +5,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthGuard } from './auth/auth.guard';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaQueryLogger } from './interceptors/prisma-query-logger.service';
 import { RequestTimingInterceptor } from './interceptors/request-timing.interceptor';
@@ -21,6 +22,7 @@ import { PrismaModule } from './prisma/prisma.module';
     LoggerModule,
     PrismaModule,
     AuthModule,
+    AuditModule,
     HealthModule,
     MetricsModule,
     ProjectModule,

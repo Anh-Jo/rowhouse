@@ -12,7 +12,7 @@ import { InMemoryMailProvider } from '@/mail/in-memory-mail.provider';
 import {
   TargetConnectionFactory,
   type TargetConnectionParams,
-} from '@/modules/datasource/target-connection.factory';
+} from '@/target-db/target-connection.factory';
 import { createPGliteDatabases } from './helpers/pglite-prisma.helper';
 
 type IdBody = { id?: string };
@@ -236,6 +236,49 @@ describe('Datasources (e2e)', () => {
       expect.stringContaining('READ_ONLY: this role can write'),
     ]);
     connections.writeCapableUsers.clear();
+  });
+
+  it('journals connection tests in the workspace audit log, invisible to non-members', async () => {
+    const events = await request(app.getHttpServer())
+      .get(`/workspaces/${workspaceA}/audit-events`)
+      .set('Cookie', cookieA);
+
+    expect(events.status).toBe(200);
+    const items = (
+      events.body as {
+        items: Array<{
+          action: string;
+          role: string | null;
+          status: string;
+          errorMessage: string | null;
+          actorId: string;
+        }>;
+      }
+    ).items;
+    const connectionTests = items.filter(
+      (event) => event.action === 'CONNECTION_TEST',
+    );
+    // Two test-connection calls ran above (one clean, one with a
+    // write-capable read-only role) — two roles journaled each time.
+    expect(connectionTests.length).toBeGreaterThanOrEqual(4);
+    expect(connectionTests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'READ_ONLY', status: 'OK' }),
+        expect.objectContaining({
+          role: 'READ_ONLY',
+          status: 'ERROR',
+          errorMessage: expect.stringContaining(
+            'this role can write',
+          ) as string,
+        }),
+      ]),
+    );
+
+    // The journal is workspace-scoped like everything else: 404, not 403.
+    await request(app.getHttpServer())
+      .get(`/workspaces/${workspaceA}/audit-events`)
+      .set('Cookie', cookieB)
+      .expect(404);
   });
 
   it('rejects an incomplete body at the Zod boundary (400)', async () => {
