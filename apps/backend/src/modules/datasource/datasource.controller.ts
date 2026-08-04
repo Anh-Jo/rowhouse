@@ -4,10 +4,12 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiParam } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { CurrentUser, CurrentWorkspace } from '@/auth/decorators';
 import { WorkspaceMemberGuard } from '@/auth/workspace.guard';
@@ -17,6 +19,7 @@ import {
   DatasourceDto,
   DatasourcePageDto,
   ListDatasourcesQueryDto,
+  UpdateDatasourceDto,
 } from './datasource.dto';
 import {
   DatasourceService,
@@ -48,6 +51,8 @@ function toDatasourceDto(row: DatasourceWithCredentials): DatasourceDto {
 
 /** Same guard regime as projects: membership verified before any handler. */
 @Controller('workspaces/:workspaceId/projects/:projectId/datasources')
+@ApiParam({ name: 'workspaceId', type: 'string' })
+@ApiParam({ name: 'projectId', type: 'string' })
 @UseGuards(WorkspaceMemberGuard)
 export class DatasourceController {
   constructor(private readonly datasourceService: DatasourceService) {}
@@ -91,6 +96,24 @@ export class DatasourceController {
   ): Promise<DatasourceDto> {
     return toDatasourceDto(
       await this.datasourceService.get(workspaceId, projectId, datasourceId),
+    );
+  }
+
+  @Patch(':datasourceId')
+  @ZodResponse({ status: 200, type: DatasourceDto })
+  async update(
+    @CurrentWorkspace() workspaceId: string,
+    @Param('projectId') projectId: string,
+    @Param('datasourceId') datasourceId: string,
+    @Body() body: UpdateDatasourceDto,
+  ): Promise<DatasourceDto> {
+    return toDatasourceDto(
+      await this.datasourceService.update(
+        workspaceId,
+        projectId,
+        datasourceId,
+        body,
+      ),
     );
   }
 

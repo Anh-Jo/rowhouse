@@ -97,3 +97,73 @@ const ConnectionTestSchema = z.object({
 });
 
 export class ConnectionTestDto extends createZodDto(ConnectionTestSchema) {}
+
+const RoleSnippetRequestSchema = z.object({
+  database: z
+    .string()
+    .regex(
+      /^[a-z_][a-z0-9_]{0,62}$/,
+      'Database name must be a lowercase Postgres identifier',
+    )
+    .describe('Name of the customer database the roles are created on'),
+  schema: z
+    .string()
+    .regex(
+      /^[a-z_][a-z0-9_]{0,62}$/,
+      'Schema must be a lowercase Postgres identifier',
+    )
+    .optional()
+    .describe('Target schema, defaults to public'),
+});
+
+export class RoleSnippetRequestDto extends createZodDto(
+  RoleSnippetRequestSchema,
+) {}
+
+const RoleSnippetSchema = z.object({
+  sql: z
+    .string()
+    .describe(
+      'Ready-to-run script creating rowhouse_ro / rowhouse_rw with minimal grants — passwords are placeholders the customer fills in',
+    ),
+});
+
+export class RoleSnippetDto extends createZodDto(RoleSnippetSchema) {}
+
+const UpdateDatasourceSchema = z
+  .object({
+    name: DatasourceNameSchema.optional(),
+    host: z
+      .string()
+      .trim()
+      .min(1)
+      .max(253)
+      .optional()
+      .describe('Database host'),
+    port: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(65535)
+      .optional()
+      .describe('Database port'),
+    database: z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe('Database name'),
+    sslMode: SslModeSchema.optional(),
+    readOnly: RoleCredentialsSchema.optional().describe(
+      'Replacement credentials for the read-only role (re-sealed on save)',
+    ),
+    readWrite: RoleCredentialsSchema.optional().describe(
+      'Replacement credentials for the read-write role (re-sealed on save)',
+    ),
+  })
+  .refine((value) => Object.values(value).some((v) => v !== undefined), {
+    message: 'Provide at least one field to update',
+  });
+
+export class UpdateDatasourceDto extends createZodDto(UpdateDatasourceSchema) {}

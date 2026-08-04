@@ -17,7 +17,10 @@ import type {
   Datasource,
   DatasourceCredential,
 } from '../../generated/prisma/client';
-import type { CreateDatasourceDto } from './datasource.dto';
+import type {
+  CreateDatasourceDto,
+  UpdateDatasourceDto,
+} from './datasource.dto';
 import { ConnectionProbe } from './connection-probe.service';
 import { CredentialVault } from '@/target-db/vault/credential-vault.service';
 
@@ -98,6 +101,80 @@ export class DatasourceService {
           },
         },
         include: { credentials: true },
+      });
+    } catch (error) {
+      if (isPrismaError(error, 'P2002')) {
+        throw new ConflictException(
+          'A datasource with this name already exists in the project',
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Partial update — the "fix your typo" path the connect flow needs: a wrong
+   * password or host must never be a dead end (standing order: security with
+   * fluidity). Provided credentials are re-sealed under a fresh DEK; omitted
+   * ones are left untouched.
+   */
+  async update(
+    workspaceId: string,
+    projectId: string,
+    datasourceId: string,
+    input: UpdateDatasourceDto,
+  ): Promise<DatasourceWithCredentials> {
+    // Reuses the scoped lookup: foreign ids 404 before anything happens.
+    await this.get(workspaceId, projectId, datasourceId);
+
+    const connectionData = {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.host !== undefined ? { host: input.host } : {}),
+      ...(input.port !== undefined ? { port: input.port } : {}),
+      ...(input.database !== undefined ? { database: input.database } : {}),
+      ...(input.sslMode !== undefined ? { sslMode: input.sslMode } : {}),
+    };
+
+    const roleUpdates = [
+      { role: 'READ_ONLY' as const, credentials: input.readOnly },
+      { role: 'READ_WRITE' as const, credentials: input.readWrite },
+    ].filter(
+      (
+        entry,
+      ): entry is {
+        role: CredentialRole;
+        credentials: { username: string; password: string };
+      } => entry.credentials !== undefined,
+    );
+    const sealedUpdates = await Promise.all(
+      roleUpdates.map(async (entry) => {
+        const sealed = await this.vault.sealSecret(entry.credentials.password);
+        return {
+          role: entry.role,
+          username: entry.credentials.username,
+          secretSealed: new Uint8Array(sealed.secretSealed),
+          dekWrapped: new Uint8Array(sealed.dekWrapped),
+          dekKeyId: sealed.dekKeyId,
+        };
+      }),
+    );
+
+    try {
+      return await this.prisma.client.$transaction(async (tx) => {
+        for (const update of sealedUpdates) {
+          const { role, ...data } = update;
+          await tx.datasourceCredential.update({
+            where: {
+              datasourceId_role: { datasourceId, role },
+            },
+            data,
+          });
+        }
+        return tx.datasource.update({
+          where: { id: datasourceId },
+          data: connectionData,
+          include: { credentials: true },
+        });
       });
     } catch (error) {
       if (isPrismaError(error, 'P2002')) {
