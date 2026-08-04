@@ -53,6 +53,12 @@ const DataExplorerPage = lazy(() =>
   })),
 );
 
+const RecordDetailPage = lazy(() =>
+  import("@/features/explorer/components/RecordDetailPage").then((m) => ({
+    default: m.RecordDetailPage,
+  })),
+);
+
 const SchemaBrowserPage = lazy(() =>
   import("@/features/schema/components/SchemaBrowserPage").then((m) => ({
     default: m.SchemaBrowserPage,
@@ -135,6 +141,14 @@ export const router = createBrowserRouter([
       {
         path: "projects/:projectId/datasources/:datasourceId/data/tables/:tableId",
         element: <DataExplorerPage />,
+        handle: FULL_BLEED,
+      },
+      // One record and its relations. Same full-bleed family as the grid
+      // (the page owns its scrolling); rowKey is the opaque PK key carried
+      // by every grid row.
+      {
+        path: "projects/:projectId/datasources/:datasourceId/data/tables/:tableId/records/:rowKey",
+        element: <RecordDetailPage />,
         handle: FULL_BLEED,
       },
       {

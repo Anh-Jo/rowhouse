@@ -100,6 +100,10 @@ function renderPage(initialPath: string) {
             path="/projects/:projectId/datasources/:datasourceId/data/tables/:tableId"
             element={<DataExplorerPage />}
           />
+          <Route
+            path="/projects/:projectId/datasources/:datasourceId/data/tables/:tableId/records/:rowKey"
+            element={<div>record-screen</div>}
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -183,6 +187,34 @@ describe('DataExplorerPage', () => {
     expect(
       screen.queryByRole('button', { name: 'Load more' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('opens the record page when a keyed row is clicked', async () => {
+    const user = userEvent.setup();
+    renderPage(`${BASE}/tables/t-orders`);
+
+    const row = (await screen.findByText('true')).closest('tr');
+    expect(row).not.toBeNull();
+    await user.click(row as HTMLElement);
+
+    expect(await screen.findByText('record-screen')).toBeInTheDocument();
+  });
+
+  it('keeps rows of PK-less tables inert (no record to open)', async () => {
+    listTableRows.mockResolvedValue({
+      items: [{ key: null, values: { message: 'hello' } }],
+      nextCursor: null,
+    });
+    const user = userEvent.setup();
+    renderPage(`${BASE}/tables/t-logs`);
+
+    const row = (await screen.findByText('hello')).closest('tr');
+    expect(row).not.toBeNull();
+    // Not presented as clickable, and clicking goes nowhere.
+    expect(row).not.toHaveAttribute('role', 'button');
+    await user.click(row as HTMLElement);
+    expect(screen.queryByText('record-screen')).not.toBeInTheDocument();
+    expect(screen.getByText('hello')).toBeInTheDocument();
   });
 
   it('shows the quiet first-page-only notice for tables without a PK', async () => {

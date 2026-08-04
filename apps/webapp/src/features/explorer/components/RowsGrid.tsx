@@ -1,4 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Inbox } from 'lucide-react';
 import { Badge } from '@/components/Badge/Badge';
 import { Button } from '@/components/Button/Button';
@@ -61,6 +62,9 @@ function GridSkeleton() {
  * from the governed explorer endpoint, cursor "load more" keeping every
  * fetched page appended. Tables without a PK serve the first page only
  * (keyset pagination needs one) — a quiet notice says so.
+ *
+ * Rows carrying a key open their record page on click; PK-less tables have
+ * no keys, so their rows stay inert.
  */
 function RowsGrid({
   workspaceId,
@@ -73,6 +77,7 @@ function RowsGrid({
   datasourceId: string;
   table: SchemaTableDto;
 }) {
+  const navigate = useNavigate();
   const rowsQuery = useInfiniteQuery({
     queryKey: explorerKeys.rows(workspaceId, projectId, datasourceId, table.id),
     queryFn: ({ pageParam }) =>
@@ -124,6 +129,13 @@ function RowsGrid({
   }
 
   const hasPrimaryKey = table.columns.some((column) => column.isPrimaryKey);
+  const openRecord = (row: GridRow) => {
+    if (row.rowKey !== null) {
+      navigate(
+        `/projects/${projectId}/datasources/${datasourceId}/data/tables/${table.id}/records/${encodeURIComponent(row.rowKey)}`,
+      );
+    }
+  };
 
   return (
     <div className="rows-grid">
@@ -132,6 +144,8 @@ function RowsGrid({
           columns={columns}
           data={rows}
           keyExtractor={(row) => row.id}
+          // No PK → no row keys → no record page to open (400 server-side).
+          onRowClick={hasPrimaryKey ? openRecord : undefined}
         />
       </div>
       <footer className="rows-grid__footer">
