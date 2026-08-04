@@ -1,0 +1,239 @@
+/* Full-bleed data view: the shell (full-bleed content mode) hands us the
+   whole viewport; this page owns its scrolling — rail and grid scroll
+   independently, the window never does. */
+.data-explorer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.data-explorer__header {
+  padding: var(--space-4) var(--space-6) 0;
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.data-explorer__header .page-header {
+  margin-bottom: var(--space-2);
+}
+
+/* The switcher tabs sit flush on the header's bottom border. */
+.data-explorer__header .tab-filter {
+  border-bottom: none;
+  margin-bottom: calc(-1 * var(--space-2) - var(--border-width));
+}
+
+.data-explorer__error {
+  padding: var(--space-6);
+}
+
+.data-explorer__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Left rail: every table, searchable, own scroll ── */
+.data-explorer__rail {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: var(--border-width) solid var(--color-border);
+  background: var(--sidebar-bg);
+  overflow-y: auto;
+}
+
+.data-explorer__rail-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3);
+}
+
+.data-explorer__rail-empty {
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+  padding: var(--space-2) var(--space-1);
+}
+
+.data-explorer__tables {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.data-explorer__table-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  min-height: var(--control-height-sm);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.data-explorer__table-link:hover {
+  background-color: var(--color-hover-muted);
+  color: var(--color-text);
+}
+
+.data-explorer__table-link--active {
+  background-color: var(--color-accent-subtle);
+  color: var(--color-accent-text);
+}
+
+/* Table names are identifiers: data voice. */
+.data-explorer__table-name {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Main area: the grid column ── */
+.data-explorer__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-4) var(--space-6);
+  gap: var(--space-3);
+}
+
+.data-explorer__placeholder {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Back to the table list — mobile only (list → detail, decision D7). */
+.data-explorer__back {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-13);
+  text-decoration: none;
+}
+
+.data-explorer__back:hover {
+  color: var(--color-text);
+}
+
+/* ── Rows grid ── */
+.rows-grid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: var(--space-3);
+}
+
+/* The grid scrolls inside itself so the sticky header holds while the
+   footer (count / load more) stays in view. */
+.rows-grid__table {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.rows-grid__table .data-table__wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+.rows-grid__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rows-grid__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.rows-grid__count {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-12);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+/* Quiet by design: informational, not a warning worth a Callout. */
+.rows-grid__notice {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+}
+
+.rows-grid__header-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ── Cell value tokens ── */
+.cell-value {
+  display: inline-block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.cell-value--null {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-12);
+  letter-spacing: var(--tracking-eyebrow);
+}
+
+.cell-value--boolean {
+  color: var(--color-info-text);
+}
+
+.cell-value--date {
+  color: var(--color-text-secondary);
+}
+
+/* ── Mobile (< 768px): list → detail as two screens (decision D7) ── */
+@media (max-width: 767px) {
+  .data-explorer__header {
+    padding: var(--space-4) var(--space-4) 0;
+  }
+
+  .data-explorer__rail {
+    width: 100%;
+    border-right: none;
+    background: transparent;
+  }
+
+  /* Without a selected table: the list is the screen. */
+  .data-explorer__main {
+    display: none;
+  }
+
+  /* With a selected table: the grid is the screen, back link shows. */
+  .data-explorer--table-open .data-explorer__rail {
+    display: none;
+  }
+
+  .data-explorer--table-open .data-explorer__main {
+    display: flex;
+    padding: var(--space-4);
+  }
+
+  .data-explorer__back {
+    display: inline-flex;
+  }
+}

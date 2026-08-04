@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 
 export type Column<T> = {
   key: string;
-  header: string;
+  /** Header cell content — plain text or decorated (badges…). */
+  header: ReactNode;
   render: (row: T) => ReactNode;
   sortable?: boolean;
   sortValue?: (row: T) => string | number;

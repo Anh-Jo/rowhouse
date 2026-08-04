@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { Placeholder } from "@/components/Placeholder";
 import { RequireAuth } from "@/features/auth/components/RequireAuth";
 import { RequireWorkspace } from "@/features/onboarding/components/RequireWorkspace";
+import { FULL_BLEED } from "@/layouts/AdminLayout/route-handle";
 
 const AdminLayout = lazy(() =>
   import("@/layouts/AdminLayout/AdminLayout").then((m) => ({
@@ -44,6 +45,12 @@ const ConnectDatasourcePage = lazy(() =>
   import("@/features/datasource/components/ConnectDatasourcePage").then(
     (m) => ({ default: m.ConnectDatasourcePage }),
   ),
+);
+
+const DataExplorerPage = lazy(() =>
+  import("@/features/explorer/components/DataExplorerPage").then((m) => ({
+    default: m.DataExplorerPage,
+  })),
 );
 
 const SchemaBrowserPage = lazy(() =>
@@ -116,6 +123,19 @@ export const router = createBrowserRouter([
       {
         path: "projects/:projectId/datasources/new",
         element: <ConnectDatasourcePage />,
+      },
+      // Datasource home: the all-tables data view. Full-bleed (route handle):
+      // the grid takes the whole viewport width. Two routes for one screen —
+      // table list and grid are separate screens on mobile (decision D7).
+      {
+        path: "projects/:projectId/datasources/:datasourceId/data",
+        element: <DataExplorerPage />,
+        handle: FULL_BLEED,
+      },
+      {
+        path: "projects/:projectId/datasources/:datasourceId/data/tables/:tableId",
+        element: <DataExplorerPage />,
+        handle: FULL_BLEED,
       },
       {
         path: "projects/:projectId/datasources/:datasourceId/schema",
