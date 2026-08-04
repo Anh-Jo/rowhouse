@@ -1,7 +1,9 @@
 import { fetchClient } from '@/api/client';
+import { unwrapApiResult } from '@/api/errors';
 import type { components } from '@/api/generated/schema.d.ts';
 
 export type ProjectDto = components['schemas']['ProjectDto_Output'];
+export type ProjectPageDto = components['schemas']['ProjectPageDto_Output'];
 export type CreateProjectInput = components['schemas']['CreateProjectDto'];
 
 /**
@@ -13,33 +15,19 @@ export type CreateProjectInput = components['schemas']['CreateProjectDto'];
  */
 type ProjectsPath = '/workspaces/{workspaceId}/projects';
 
+function projectsPath(workspaceId: string): ProjectsPath {
+  return `/workspaces/${encodeURIComponent(workspaceId)}/projects` as ProjectsPath;
+}
+
+export async function listProjects(workspaceId: string): Promise<ProjectPageDto> {
+  return unwrapApiResult(await fetchClient.GET(projectsPath(workspaceId)));
+}
+
 export async function createProject(
   workspaceId: string,
   input: CreateProjectInput,
 ): Promise<ProjectDto> {
-  const { data, error } = await fetchClient.POST(
-    `/workspaces/${encodeURIComponent(workspaceId)}/projects` as ProjectsPath,
-    { body: input },
+  return unwrapApiResult(
+    await fetchClient.POST(projectsPath(workspaceId), { body: input }),
   );
-  if (!data) {
-    throw new Error(extractApiErrorMessage(error));
-  }
-  return data;
-}
-
-/**
- * Narrows an unknown error payload (Nest exception filter / nestjs-zod shape:
- * `{ message: string | string[] }`) down to a human-readable message.
- */
-function extractApiErrorMessage(error: unknown): string {
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === 'string' && message.length > 0) {
-      return message;
-    }
-    if (Array.isArray(message) && message.every((m) => typeof m === 'string')) {
-      return message.join(', ');
-    }
-  }
-  return 'Unexpected server error, please try again.';
 }

@@ -27,8 +27,6 @@
         "src/helpers/prisma-errors.ts"
       ],
       "ignoreDependencies": [
-        // runtime peer: fastify is required by @nestjs/platform-fastify
-        "fastify",
         // referenced by string in the pino transport (logger.module.ts)
         "pino-pretty",
         // invoked via `npx @better-auth/cli` in database:generate-schema:auth
@@ -40,15 +38,14 @@
       "entry": [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.stories.tsx",
-        // scaffolding: query keys, consumed by the first data-fetching feature
-        "src/api/query-keys.ts",
         // scaffolding components: available building blocks, not yet used by a page
-        "src/components/EmptyState/EmptyState.tsx",
         "src/components/Icon/Icon.tsx",
         "src/components/Popover/Popover.tsx"
       ],
-      // declared react-query binding for the OpenAPI client, wired by the
-      // first data-fetching feature (the onboarding flow only mutates)
+      // declared react-query binding for the OpenAPI client. Not wired yet:
+      // the contract omits guard-declared path params (workspaceId), so data
+      // fetching uses typed api functions + @tanstack/react-query instead
+      // (see src/api/projects.ts). Revisit once the backend documents them.
       "ignoreDependencies": ["openapi-react-query"]
     },
     "packages/ui": {
