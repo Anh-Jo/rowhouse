@@ -129,3 +129,41 @@ const RoleSnippetSchema = z.object({
 });
 
 export class RoleSnippetDto extends createZodDto(RoleSnippetSchema) {}
+
+const UpdateDatasourceSchema = z
+  .object({
+    name: DatasourceNameSchema.optional(),
+    host: z
+      .string()
+      .trim()
+      .min(1)
+      .max(253)
+      .optional()
+      .describe('Database host'),
+    port: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(65535)
+      .optional()
+      .describe('Database port'),
+    database: z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe('Database name'),
+    sslMode: SslModeSchema.optional(),
+    readOnly: RoleCredentialsSchema.optional().describe(
+      'Replacement credentials for the read-only role (re-sealed on save)',
+    ),
+    readWrite: RoleCredentialsSchema.optional().describe(
+      'Replacement credentials for the read-write role (re-sealed on save)',
+    ),
+  })
+  .refine((value) => Object.values(value).some((v) => v !== undefined), {
+    message: 'Provide at least one field to update',
+  });
+
+export class UpdateDatasourceDto extends createZodDto(UpdateDatasourceSchema) {}
