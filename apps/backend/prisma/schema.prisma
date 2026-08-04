@@ -26,12 +26,152 @@ model User {
 /// enforced by the workspace guard, and cleanup on workspace deletion is an
 /// application concern (auth hooks), not a cascade.
 model Project {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   workspaceId String
   name        String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  datasources Datasource[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
 }
+
+/// A connected target database inside a project. Connection *identity* lives
+/// here; secrets live in DatasourceCredential, encrypted. `type` is an enum
+/// of one on purpose (transverse decision D1: Postgres only until after V1)
+/// so adding an engine is a schema migration, not a stringly-typed drift.
+model Datasource {
+  id          String                 @id @default(cuid())
+  project     Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  name        String
+  type        DatasourceType         @default(POSTGRES)
+  host        String
+  port        Int
+  database    String
+  /// TLS on the target connection. Required by default (decision D11);
+  /// DISABLE must be an explicit, visible choice (dev databases).
+  sslMode      DatasourceSslMode      @default(REQUIRE)
+  credentials  DatasourceCredential[]
+  schemaTables SchemaTable[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+enum DatasourceType {
+  POSTGRES
+}
+
+enum DatasourceSslMode {
+  DISABLE
+  REQUIRE
+}
+
+/// One database role of a datasource (exactly two rows per datasource:
+/// READ_ONLY and READ_WRITE — decision D2). The password is sealed with
+/// envelope encryption (decision D10): AES-256-GCM under a per-credential
+/// DEK, itself wrapped by the KeyProvider's KEK. No plaintext ever lands
+/// in this table, in logs, or in any API response.
+model DatasourceCredential {
+  id           String         @id @default(cuid())
+  datasource   Datasource     @relation(fields: [datasourceId], references: [id], onDelete: Cascade)
+  datasourceId String
+  role         CredentialRole
+  username     String
+  /// AES-256-GCM: IV || ciphertext || auth tag, in one column.
+  secretSealed Bytes
+  /// The per-credential DEK, wrapped by the KeyProvider (opaque to us).
+  dekWrapped   Bytes
+  /// Identifies the KEK that wrapped the DEK — enables rotation by rewrap.
+  dekKeyId     String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([datasourceId, role])
+}
+
+enum CredentialRole {
+  READ_ONLY
+  READ_WRITE
+}
+
+/// Append-only journal of everything executed against customer databases
+/// (transverse decision D3). Insert-only at the application layer: the audit
+/// service exposes no update or delete. `statement` is our own generated SQL
+/// (never raw row data); query parameters are stored as a digest only, since
+/// they may carry customer PII.
+model AuditEvent {
+  id           String          @id @default(cuid())
+  workspaceId  String
+  actorId      String
+  datasourceId String?
+  role         CredentialRole?
+  action       AuditAction
+  statement    String?
+  paramsDigest String?
+  rowCount     Int?
+  durationMs   Int
+  status       AuditStatus
+  errorMessage String?
+  /// Filled from P2 on: the human who approved a sensitive action.
+  approvedBy   String?
+  createdAt    DateTime        @default(now())
+
+  @@index([workspaceId, createdAt, id])
+  @@index([datasourceId])
+}
+
+enum AuditAction {
+  CONNECTION_TEST
+  INTROSPECT
+  READ
+}
+
+enum AuditStatus {
+  OK
+  ERROR
+}
+
+/// One table of a target database, as last introspected. Structure columns
+/// are overwritten by every re-sync; `description` is team-authored metadata
+/// and survives syncs — that split is the module's core contract.
+model SchemaTable {
+  id           String         @id @default(cuid())
+  datasource   Datasource     @relation(fields: [datasourceId], references: [id], onDelete: Cascade)
+  datasourceId String
+  schema       String
+  name         String
+  description  String?
+  columns      SchemaColumn[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([datasourceId, schema, name])
+  @@index([datasourceId])
+}
+
+/// One column of an introspected table. Same split as SchemaTable:
+/// structure fields are sync-owned; `description` and `isPii` are
+/// team-owned and survive re-syncs. `isPii` feeds P2's masking.
+model SchemaColumn {
+  id           String      @id @default(cuid())
+  table        SchemaTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableId      String
+  name         String
+  dataType     String
+  isNullable   Boolean
+  isPrimaryKey Boolean
+  refTable     String?
+  refColumn    String?
+  position     Int
+  description  String?
+  isPii        Boolean     @default(false)
+
+  @@unique([tableId, name])
+  @@index([tableId])
+}
+

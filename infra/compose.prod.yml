@@ -39,6 +39,7 @@ services:
       # (see infra/ensure-auth-db.cjs) before running its migrations.
       AUTH_DATABASE_URL: postgresql://${POSTGRES_USER:-rowhouse}:${POSTGRES_PASSWORD:?set it in infra/.env}@postgres:5432/${POSTGRES_DB:-rowhouse}_auth
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set it in infra/.env}
+      CREDENTIALS_KEK: ${CREDENTIALS_KEK:?set it in infra/.env}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?public API URL, set it in infra/.env}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}

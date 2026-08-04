@@ -66,6 +66,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.19.15",
     "@types/nodemailer": "^6.4.23",
+    "@types/pg": "^8.20.3",
     "@types/supertest": "^6.0.3",
     "dotenv-cli": "^7.4.4",
     "eslint": "^9.39.4",

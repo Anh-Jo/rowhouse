@@ -28,6 +28,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       AUTH_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_auth
       BETTER_AUTH_SECRET: ci-better-auth-secret-0123456789-abcdef
+      CREDENTIALS_KEK: cm93aG91c2UtdGVzdC1rZWstMTIzNDU2Nzg5YWJjZCE=
       BETTER_AUTH_URL: http://localhost:3000
       FRONTEND_URL: http://localhost:5173
 
