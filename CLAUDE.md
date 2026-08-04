@@ -1,5 +1,68 @@
 # rowhouse
 
+Rowhouse is a **governed database workspace** for ops, support and dev teams:
+a premium, multi-device explorer and safe editor on top of production
+databases, with an embedded AI agent (later phases) that works *inside* the
+governance layer, never around it.
+
+**Start here to iterate**: [docs/plans/README.md](./docs/plans/README.md) —
+the master plan holds the phase index, the shared data model and the
+**transverse decisions (D1–D11), which are settled: follow them, do not
+re-litigate them.** One phase = one plan file = one branch = one session;
+work in progress is stacked branches (`feat/foundation` →
+`feat/workspace-projects` → `feat/datasource-vault` →
+`feat/query-engine-audit` → `feat/introspection` → …), each green on
+`pnpm verify` before push.
+
+## Trust layer — non-negotiables in code terms
+
+The product's core promise is that nothing unsafe can happen to a customer
+database. These rules are load-bearing; breaking one is never a refactor
+detail:
+
+- **Every read of a customer database goes through `QueryEngine`**
+  (`src/target-db/query-engine.service.ts`) — humans and (later) the agent
+  alike. It resolves the datasource *through the workspace* (foreign ids 404
+  like missing ones), runs on the READ_ONLY role only, and journals exactly
+  one `AuditEvent` per execution, success or failure. No other code path may
+  open a target-DB connection — the `TargetConnectionFactory` and
+  `CredentialVault` are implementation details of `src/target-db/`.
+- **Secrets**: datasource passwords are envelope-encrypted (per-credential
+  DEK wrapped by the `KeyProvider` KEK — `CREDENTIALS_KEK` in env, KMS in
+  prod). Plaintext exists in memory just-in-time only; never in a log, a
+  response, or a test snapshot. Tests assert redaction — keep them passing.
+- **Audit is append-only** (`src/audit/`): the service exposes `record` and
+  `list`, nothing else. A spec pins that surface; extend it, never widen it.
+- **Workspace scoping**: every scoped route sits behind
+  `WorkspaceMemberGuard` and consumes ids via `@CurrentWorkspace()` /
+  `@CurrentUser()` — never a client-supplied value. Non-members get **404,
+  never 403** (no existence probing). New scoped queries put the workspace
+  filter *inside* the query, not as a post-check.
+- **Prisma is for Rowhouse's own database only** (D8). Customer databases
+  are reached exclusively through the datasource layer with parameterized
+  SQL; engine-specific SQL lives only in `src/target-db/*.external-datasource.ts`
+  implementations (D1).
+- **Security pairs with fluidity** (standing order): a guardrail that
+  creates user friction is a design bug — redesign the flow, never weaken
+  the guardrail.
+
+## Backend map (beyond the starter layout)
+
+- `src/auth/` — better-auth wrapper (separate auth database; the
+  **organization plugin is the Workspace backbone**), global AuthGuard
+  (protected by default), `WorkspaceMemberGuard`, decorators. No other
+  module imports better-auth directly.
+- `src/target-db/` — everything touching customer databases: vault
+  (envelope encryption), connection factory, `ExternalDatasource`
+  abstraction + Postgres implementation, governed `QueryEngine`.
+- `src/audit/` — append-only journal + workspace-scoped read endpoint.
+- `src/modules/project|datasource|introspection/` — feature silos on top of
+  the shared layers (modules never import each other).
+- E2e tests run on PGlite (in-memory Postgres, no Docker needed) and
+  substitute `TargetConnectionFactory` with fakes — see
+  `test/datasource.e2e-spec.ts` for the pattern that proves the
+  seal → persist → unseal chain.
+
 ## Tech Stack
 
 | Layer        | Technology                                          |
