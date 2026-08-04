@@ -12,7 +12,9 @@ import { Select } from '@/components/Select/Select';
 import {
   createDatasource,
   testConnection,
+  updateDatasource,
   type CreateDatasourceInput,
+  type UpdateDatasourceInput,
 } from '@/api/datasources';
 import { syncSchema } from '@/api/schema';
 import { useWorkspaceId } from '@/hooks/useWorkspaceId';
@@ -54,6 +56,22 @@ GRANT CONNECT ON DATABASE <database> TO rowhouse_rw;
 GRANT USAGE ON SCHEMA public TO rowhouse_rw;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rowhouse_rw;`;
 
+/**
+ * What the server currently holds for the registered datasource (passwords
+ * are sealed server-side and never echoed back — only usernames are kept).
+ * Retries diff the form against this snapshot to PATCH only what changed.
+ */
+type SavedDatasource = {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  database: string;
+  sslMode: 'REQUIRE' | 'DISABLE';
+  readOnlyUsername: string;
+  readWriteUsername: string;
+};
+
 const SSL_MODE_OPTIONS = [
   { value: 'REQUIRE', label: 'Required (recommended)' },
   { value: 'DISABLE', label: 'Disabled — local databases only' },
@@ -77,18 +95,78 @@ function toCreateInput(values: ConnectFormValues): CreateDatasourceInput {
   };
 }
 
+function toSavedDatasource(id: string, values: ConnectFormValues): SavedDatasource {
+  return {
+    id,
+    name: values.name.trim(),
+    host: values.host.trim(),
+    port: Number(values.port),
+    database: values.database.trim(),
+    sslMode: values.sslMode,
+    readOnlyUsername: values.readOnlyUsername.trim(),
+    readWriteUsername: values.readWriteUsername.trim(),
+  };
+}
+
+/**
+ * Only what differs from the saved snapshot goes into the PATCH. A blank
+ * password means "keep the current sealed one", so a role is only included
+ * when a new password was typed (a username change alone is blocked by
+ * validation — re-sealing needs the password too).
+ */
+function buildUpdatePatch(
+  values: ConnectFormValues,
+  saved: SavedDatasource,
+): UpdateDatasourceInput {
+  const patch: UpdateDatasourceInput = {};
+  const name = values.name.trim();
+  if (name !== saved.name) {
+    patch.name = name;
+  }
+  const host = values.host.trim();
+  if (host !== saved.host) {
+    patch.host = host;
+  }
+  const port = Number(values.port);
+  if (port !== saved.port) {
+    patch.port = port;
+  }
+  const database = values.database.trim();
+  if (database !== saved.database) {
+    patch.database = database;
+  }
+  if (values.sslMode !== saved.sslMode) {
+    patch.sslMode = values.sslMode;
+  }
+  if (values.readOnlyPassword !== '') {
+    patch.readOnly = {
+      username: values.readOnlyUsername.trim(),
+      password: values.readOnlyPassword,
+    };
+  }
+  if (values.readWritePassword !== '') {
+    patch.readWrite = {
+      username: values.readWriteUsername.trim(),
+      password: values.readWritePassword,
+    };
+  }
+  return patch;
+}
+
 /**
  * Registers a datasource, then walks the trust checks in one flow: connection
  * test (both roles + the read-only-cannot-write guardrail), then the first
  * schema sync, then straight to the schema browser. Failures surface as
- * actionable inline problems, never a dead end.
+ * actionable inline problems, never a dead end: every field stays editable
+ * after a failed test, and the retry PATCHes whatever changed (wrong password
+ * included) before re-running the test.
  */
 function ConnectDatasourcePage() {
   const { projectId = '' } = useParams();
   const navigate = useNavigate();
   const { workspaceId } = useWorkspaceId();
   const [stage, setStage] = useState<ConnectStage>({ step: 'form' });
-  const [datasourceId, setDatasourceId] = useState<string | null>(null);
+  const [saved, setSaved] = useState<SavedDatasource | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const form = useForm<ConnectFormValues>({
@@ -105,24 +183,40 @@ function ConnectDatasourcePage() {
     },
   });
 
+  // After a successful save the passwords are sealed server-side; the inputs
+  // go back to blank ("keep the current password") so a failed test never
+  // leaves secrets sitting in the DOM, and a retry only re-sends what the
+  // user re-typed.
+  const rememberSaved = (id: string, values: ConnectFormValues) => {
+    setSaved(toSavedDatasource(id, values));
+    form.resetField('readOnlyPassword');
+    form.resetField('readWritePassword');
+  };
+
   const onSubmit = async (values: ConnectFormValues) => {
     if (!workspaceId) {
       return;
     }
     setApiError(null);
     try {
-      // The datasource has no update endpoint in P0: once registered, a
-      // failed test is retried against the same record (fix grants database
-      // side), not by re-creating it.
-      let id = datasourceId;
-      if (id === null) {
+      let id: string;
+      if (saved === null) {
         const created = await createDatasource(
           workspaceId,
           projectId,
           toCreateInput(values),
         );
         id = created.id;
-        setDatasourceId(id);
+        rememberSaved(id, values);
+      } else {
+        // Retry: PATCH the fields that changed since the last save (if any)
+        // so a wrong password is fixable in place, then re-run the test.
+        id = saved.id;
+        const patch = buildUpdatePatch(values, saved);
+        if (Object.keys(patch).length > 0) {
+          await updateDatasource(workspaceId, projectId, id, patch);
+          rememberSaved(id, values);
+        }
       }
       setStage({ step: 'testing' });
       const result = await testConnection(workspaceId, projectId, id);
@@ -156,9 +250,29 @@ function ConnectDatasourcePage() {
       ? 'Testing connection…'
       : stage.step === 'syncing'
         ? 'Connection OK — syncing schema…'
-        : datasourceId !== null
+        : saved !== null
           ? 'Retry connection test'
           : 'Connect & test';
+
+  // After registration, passwords are optional: blank keeps the sealed one.
+  // But a username change forces a re-seal, which needs the password too.
+  const validatePassword =
+    (label: string, usernameField: 'readOnlyUsername' | 'readWriteUsername') =>
+    (value: string, formValues: ConnectFormValues): string | true => {
+      if (saved === null) {
+        return validateRequired(label)(value);
+      }
+      const savedUsername =
+        usernameField === 'readOnlyUsername'
+          ? saved.readOnlyUsername
+          : saved.readWriteUsername;
+      if (value === '' && formValues[usernameField].trim() !== savedUsername) {
+        return `${label} is required when changing the username`;
+      }
+      return true;
+    };
+  const passwordHint =
+    saved !== null ? 'Leave blank to keep the current password' : undefined;
 
   return (
     <div className="connect-page">
@@ -206,6 +320,10 @@ function ConnectDatasourcePage() {
               ),
             )}
           </ul>
+          <p className="connect-result__retry-hint">
+            Fix the fields below — password fields left blank keep the stored
+            password — then retry the test.
+          </p>
         </Callout>
       )}
 
@@ -216,12 +334,9 @@ function ConnectDatasourcePage() {
       >
         <FormError message={apiError} />
 
-        <fieldset
-          className="connect-page__fieldset"
-          // Registered datasources cannot be edited in P0 — the retry only
-          // re-runs the test, so editing fields here would silently lie.
-          disabled={datasourceId !== null}
-        >
+        {/* Fields lock only while a request is in flight; after a failed test
+            everything stays editable so the user can fix and retry. */}
+        <fieldset className="connect-page__fieldset" disabled={busy}>
           <legend className="connect-page__legend">Database</legend>
           <Input
             label="Name"
@@ -270,10 +385,7 @@ function ConnectDatasourcePage() {
         </fieldset>
 
         <div className="connect-page__roles">
-          <fieldset
-            className="connect-page__fieldset"
-            disabled={datasourceId !== null}
-          >
+          <fieldset className="connect-page__fieldset" disabled={busy}>
             <legend className="connect-page__legend">Read-only role</legend>
             <p className="connect-page__hint">
               Default execution path — every read goes through this role.
@@ -292,17 +404,18 @@ function ConnectDatasourcePage() {
               label="Read-only password"
               type="password"
               autoComplete="new-password"
+              placeholder={passwordHint}
               error={form.formState.errors.readOnlyPassword?.message}
               {...form.register('readOnlyPassword', {
-                validate: validateRequired('Read-only password'),
+                validate: validatePassword(
+                  'Read-only password',
+                  'readOnlyUsername',
+                ),
               })}
             />
           </fieldset>
 
-          <fieldset
-            className="connect-page__fieldset"
-            disabled={datasourceId !== null}
-          >
+          <fieldset className="connect-page__fieldset" disabled={busy}>
             <legend className="connect-page__legend">Read-write role</legend>
             <p className="connect-page__hint">
               Only used behind explicit approvals (from P2), never by default.
@@ -321,9 +434,13 @@ function ConnectDatasourcePage() {
               label="Read-write password"
               type="password"
               autoComplete="new-password"
+              placeholder={passwordHint}
               error={form.formState.errors.readWritePassword?.message}
               {...form.register('readWritePassword', {
-                validate: validateRequired('Read-write password'),
+                validate: validatePassword(
+                  'Read-write password',
+                  'readWriteUsername',
+                ),
               })}
             />
           </fieldset>

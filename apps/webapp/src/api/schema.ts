@@ -9,38 +9,9 @@ export type SyncResultDto = components['schemas']['SyncResultDto_Output'];
 export type UpdateTableMetadataInput = components['schemas']['UpdateTableMetadataDto'];
 export type UpdateColumnMetadataInput = components['schemas']['UpdateColumnMetadataDto'];
 
-/**
- * `:workspaceId` — and `:datasourceId` on the metadata PATCH routes — are
- * resolved by backend guards, so the generated contract declares no `path`
- * parameter for them (same substitution pattern as `@/api/projects` — see the
- * comment there). Guard-resolved ids are substituted manually below; the ids
- * the contract does declare stay as `{...}` templates for openapi-fetch.
- */
-type SchemaPath =
-  '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema';
-type SchemaSyncPath =
-  '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/sync';
-type SchemaTablePath =
-  '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/tables/{tableId}';
-type SchemaColumnPath =
-  '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/columns/{columnId}';
-
-function substituteGuardParams<P extends string>(
-  path: P,
-  ids: { workspaceId: string; datasourceId?: string },
-): P {
-  let result: string = path.replace(
-    '{workspaceId}',
-    encodeURIComponent(ids.workspaceId),
-  );
-  if (ids.datasourceId !== undefined) {
-    result = result.replace(
-      '{datasourceId}',
-      encodeURIComponent(ids.datasourceId),
-    );
-  }
-  return result as P;
-}
+// The contract declares every path param (`@ApiParam` on the controllers covers
+// the guard-resolved `:workspaceId` and `:datasourceId`), so openapi-fetch
+// substitutes them all — no manual path substitution needed.
 
 export async function getDatasourceSchema(
   workspaceId: string,
@@ -49,11 +20,8 @@ export async function getDatasourceSchema(
 ): Promise<DatasourceSchemaDto> {
   return unwrapApiResult(
     await fetchClient.GET(
-      substituteGuardParams<SchemaPath>(
-        '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema',
-        { workspaceId },
-      ),
-      { params: { path: { projectId, datasourceId } } },
+      '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema',
+      { params: { path: { workspaceId, projectId, datasourceId } } },
     ),
   );
 }
@@ -65,11 +33,8 @@ export async function syncSchema(
 ): Promise<SyncResultDto> {
   return unwrapApiResult(
     await fetchClient.POST(
-      substituteGuardParams<SchemaSyncPath>(
-        '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/sync',
-        { workspaceId },
-      ),
-      { params: { path: { projectId, datasourceId } } },
+      '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/sync',
+      { params: { path: { workspaceId, projectId, datasourceId } } },
     ),
   );
 }
@@ -83,11 +48,11 @@ export async function updateTableMetadata(
 ): Promise<SchemaTableDto> {
   return unwrapApiResult(
     await fetchClient.PATCH(
-      substituteGuardParams<SchemaTablePath>(
-        '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/tables/{tableId}',
-        { workspaceId, datasourceId },
-      ),
-      { params: { path: { projectId, tableId } }, body: input },
+      '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/tables/{tableId}',
+      {
+        params: { path: { workspaceId, projectId, datasourceId, tableId } },
+        body: input,
+      },
     ),
   );
 }
@@ -101,11 +66,11 @@ export async function updateColumnMetadata(
 ): Promise<SchemaColumnDto> {
   return unwrapApiResult(
     await fetchClient.PATCH(
-      substituteGuardParams<SchemaColumnPath>(
-        '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/columns/{columnId}',
-        { workspaceId, datasourceId },
-      ),
-      { params: { path: { projectId, columnId } }, body: input },
+      '/workspaces/{workspaceId}/projects/{projectId}/datasources/{datasourceId}/schema/columns/{columnId}',
+      {
+        params: { path: { workspaceId, projectId, datasourceId, columnId } },
+        body: input,
+      },
     ),
   );
 }

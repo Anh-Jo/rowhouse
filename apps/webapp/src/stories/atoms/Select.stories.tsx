@@ -28,6 +28,9 @@ export const WithError: Story = {
   args: { error: 'Choose an SSL mode' },
 };
 
+/* The selected value must keep the normal text color even when disabled —
+   only a genuine placeholder may render muted (regression: fieldset-disabled
+   TLS select looked like an empty placeholder). */
 export const Disabled: Story = {
   args: { value: 'REQUIRE', disabled: true },
 };
