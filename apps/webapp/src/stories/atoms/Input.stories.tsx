@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/Input/Input';
-import { Search, Mail, Phone as PhoneIcon } from 'lucide-react';
 
 const meta: Meta<typeof Input> = {
   title: 'Atoms/Input',
@@ -11,29 +11,25 @@ export default meta;
 type Story = StoryObj<typeof Input>;
 
 export const Default: Story = {
-  args: { label: 'Nom', placeholder: 'Entrez votre nom' },
+  args: { label: 'Host', placeholder: 'db.example.com' },
 };
 
-export const Email: Story = {
-  args: { label: 'Email', type: 'email', placeholder: 'email@exemple.com', icon: <Mail size={16} /> },
+export const WithHint: Story = {
+  args: { label: 'Port', defaultValue: '5432', hint: 'PostgreSQL default is 5432' },
 };
 
-export const Telephone: Story = {
-  args: { label: 'Telephone', type: 'tel', placeholder: '06 00 00 00 00', icon: <PhoneIcon size={16} /> },
-};
-
-export const SearchInput: Story = {
-  args: { placeholder: 'Rechercher un lead...', icon: <Search size={16} /> },
-};
-
-export const Password: Story = {
-  args: { label: 'Mot de passe', type: 'password', placeholder: '********' },
+export const WithIcon: Story = {
+  args: { placeholder: 'Search tables…', icon: <Search size={16} />, 'aria-label': 'Search' },
 };
 
 export const WithError: Story = {
-  args: { label: 'Email', type: 'email', error: 'Email invalide', value: 'bad-email' },
+  args: { label: 'Database', error: 'Database is required' },
 };
 
-export const Number: Story = {
-  args: { label: 'Montant', type: 'number', placeholder: '0' },
+export const Password: Story = {
+  args: { label: 'Read-only password', type: 'password', defaultValue: 'secret' },
+};
+
+export const Disabled: Story = {
+  args: { label: 'Host', defaultValue: 'db.example.com', disabled: true },
 };

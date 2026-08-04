@@ -1,32 +1,25 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { useState } from 'react';
 import { Checkbox } from '@/components/Checkbox/Checkbox';
 
 const meta: Meta<typeof Checkbox> = {
   title: 'Atoms/Checkbox',
   component: Checkbox,
+  args: { label: 'Personal data (PII) — masked for non-approved roles' },
 };
 
 export default meta;
 type Story = StoryObj<typeof Checkbox>;
 
-export const Default: Story = {
-  args: { label: 'Selectionner' },
-};
+export const Default: Story = {};
 
 export const Checked: Story = {
-  args: { label: 'Selectionne', checked: true },
+  args: { defaultChecked: true },
 };
 
 export const Disabled: Story = {
-  args: { label: 'Desactive', disabled: true },
+  args: { disabled: true },
 };
 
-function InteractiveCheckbox() {
-  const [checked, setChecked] = useState(false);
-  return <Checkbox label="Accepter les conditions" checked={checked} onCheckedChange={setChecked} />;
-}
-
-export const Interactive: Story = {
-  render: () => <InteractiveCheckbox />,
+export const DisabledChecked: Story = {
+  args: { disabled: true, defaultChecked: true },
 };
