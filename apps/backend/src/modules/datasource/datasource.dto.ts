@@ -97,3 +97,35 @@ const ConnectionTestSchema = z.object({
 });
 
 export class ConnectionTestDto extends createZodDto(ConnectionTestSchema) {}
+
+const RoleSnippetRequestSchema = z.object({
+  database: z
+    .string()
+    .regex(
+      /^[a-z_][a-z0-9_]{0,62}$/,
+      'Database name must be a lowercase Postgres identifier',
+    )
+    .describe('Name of the customer database the roles are created on'),
+  schema: z
+    .string()
+    .regex(
+      /^[a-z_][a-z0-9_]{0,62}$/,
+      'Schema must be a lowercase Postgres identifier',
+    )
+    .optional()
+    .describe('Target schema, defaults to public'),
+});
+
+export class RoleSnippetRequestDto extends createZodDto(
+  RoleSnippetRequestSchema,
+) {}
+
+const RoleSnippetSchema = z.object({
+  sql: z
+    .string()
+    .describe(
+      'Ready-to-run script creating rowhouse_ro / rowhouse_rw with minimal grants — passwords are placeholders the customer fills in',
+    ),
+});
+
+export class RoleSnippetDto extends createZodDto(RoleSnippetSchema) {}

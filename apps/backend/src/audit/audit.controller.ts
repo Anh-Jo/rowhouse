@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiParam } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { CurrentWorkspace } from '@/auth/decorators';
 import { WorkspaceMemberGuard } from '@/auth/workspace.guard';
@@ -29,6 +30,7 @@ function toAuditEventDto(row: AuditEvent): AuditEventDto {
 
 /** Read-only view of the journal, workspace-scoped. There is no write route. */
 @Controller('workspaces/:workspaceId/audit-events')
+@ApiParam({ name: 'workspaceId', type: 'string' })
 @UseGuards(WorkspaceMemberGuard)
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}

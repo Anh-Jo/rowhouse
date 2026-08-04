@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiParam } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { CurrentUser, CurrentWorkspace } from '@/auth/decorators';
 import { WorkspaceMemberGuard } from '@/auth/workspace.guard';
@@ -48,6 +49,8 @@ function toDatasourceDto(row: DatasourceWithCredentials): DatasourceDto {
 
 /** Same guard regime as projects: membership verified before any handler. */
 @Controller('workspaces/:workspaceId/projects/:projectId/datasources')
+@ApiParam({ name: 'workspaceId', type: 'string' })
+@ApiParam({ name: 'projectId', type: 'string' })
 @UseGuards(WorkspaceMemberGuard)
 export class DatasourceController {
   constructor(private readonly datasourceService: DatasourceService) {}

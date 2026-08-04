@@ -281,6 +281,30 @@ describe('Datasources (e2e)', () => {
       .expect(404);
   });
 
+  it('serves the least-privilege role snippet, workspace-guarded', async () => {
+    const response = await request(app.getHttpServer())
+      .post(`/workspaces/${workspaceA}/datasource-role-snippet`)
+      .set('Cookie', cookieA)
+      .send({ database: 'appdb' });
+
+    expect(response.status).toBe(200);
+    const sql = (response.body as { sql: string }).sql;
+    expect(sql).toContain('CREATE ROLE rowhouse_ro LOGIN');
+    expect(sql).toContain('GRANT CONNECT ON DATABASE appdb');
+
+    await request(app.getHttpServer())
+      .post(`/workspaces/${workspaceA}/datasource-role-snippet`)
+      .set('Cookie', cookieB)
+      .send({ database: 'appdb' })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .post(`/workspaces/${workspaceA}/datasource-role-snippet`)
+      .set('Cookie', cookieA)
+      .send({ database: "app'; DROP TABLE x; --" })
+      .expect(400);
+  });
+
   it('rejects an incomplete body at the Zod boundary (400)', async () => {
     const missingRole: Partial<typeof VALID_BODY> = { ...VALID_BODY };
     delete missingRole.readWrite;
