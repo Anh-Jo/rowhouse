@@ -35,3 +35,35 @@ const RowPageSchema = z.object({
 });
 
 export class RowPageDto extends createZodDto(RowPageSchema) {}
+
+const RecordRefSchema = z.object({
+  column: z.string().describe('FK column on this record'),
+  tableId: z
+    .string()
+    .nullable()
+    .describe('Snapshot id of the referenced table (null if not synced)'),
+  tableName: z.string().describe('Referenced table name'),
+  row: RowSchema.nullable().describe(
+    'The referenced row, resolved — null when the FK value is null or the row is gone',
+  ),
+});
+
+const ReferencedBySchema = z.object({
+  tableId: z.string().describe('Snapshot id of the referencing table'),
+  tableName: z.string().describe('Referencing table name'),
+  viaColumn: z.string().describe('Column on that table pointing here'),
+  count: z.number().int().describe('Total referencing rows'),
+  rows: z.array(RowSchema).describe('First referencing rows (capped)'),
+});
+
+const RecordDetailSchema = z.object({
+  row: RowSchema.describe('The record itself'),
+  references: z
+    .array(RecordRefSchema)
+    .describe('Outgoing relations: what this record points at'),
+  referencedBy: z
+    .array(ReferencedBySchema)
+    .describe('Incoming relations: what points at this record'),
+});
+
+export class RecordDetailDto extends createZodDto(RecordDetailSchema) {}
