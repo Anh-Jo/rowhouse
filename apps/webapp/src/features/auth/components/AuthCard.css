@@ -4,16 +4,15 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: var(--color-background);
+  background: var(--color-bg);
 }
 
 .auth-card {
   width: 100%;
   max-width: 400px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: var(--space-8) var(--space-6);
   display: flex;
   flex-direction: column;
@@ -27,33 +26,34 @@
   text-align: center;
 }
 
+/* Brand eyebrow: uppercase micro-label in the accent voice */
 .auth-card__brand {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-12);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
-  color: var(--color-text-secondary);
+  color: var(--color-accent-text);
 }
 
 .auth-card__title {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-22);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
 }
 
 .auth-card__subtitle {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-14);
   color: var(--color-text-secondary);
 }
 
 .auth-card__footer {
   text-align: center;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-14);
   color: var(--color-text-secondary);
 }
 
 .auth-card__footer a {
-  color: var(--color-info-dark);
+  color: var(--color-accent-text);
   font-weight: var(--font-weight-medium);
   text-decoration: none;
 }

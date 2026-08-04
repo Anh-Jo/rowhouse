@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import * as RadixSelect from '@radix-ui/react-select';
 import { ChevronDown, Check } from 'lucide-react';
+import { Field } from '@/components/Field/Field';
 import './Select.css';
 
 type SelectProps = {
@@ -11,18 +12,25 @@ type SelectProps = {
   defaultValue?: string;
   onValueChange?: (value: string) => void;
   error?: string;
+  hint?: string;
   disabled?: boolean;
   className?: string;
 };
 
-function Select({ label, placeholder = 'Selectionner...', options, value, defaultValue, onValueChange, error, disabled, className }: SelectProps) {
+function Select({ label, placeholder = 'Select…', options, value, defaultValue, onValueChange, error, hint, disabled, className }: SelectProps) {
   const generatedId = useId();
   const triggerId = `select-trigger-${generatedId}`;
   const errorId = `select-error-${generatedId}`;
 
   return (
-    <div className={`form-field select-field${error ? ' select-field--error' : ''}${className ? ` ${className}` : ''}`}>
-      {label && <label className="form-field__label" htmlFor={triggerId}>{label}</label>}
+    <Field
+      label={label}
+      hint={hint}
+      error={error}
+      htmlFor={triggerId}
+      errorId={errorId}
+      className={`select-field${error ? ' select-field--error' : ''}${className ? ` ${className}` : ''}`}
+    >
       <RadixSelect.Root value={value} defaultValue={value === undefined ? defaultValue : undefined} onValueChange={onValueChange} disabled={disabled}>
         <RadixSelect.Trigger className="select-field__trigger" id={triggerId} aria-invalid={!!error} aria-describedby={error ? errorId : undefined}>
           <RadixSelect.Value placeholder={placeholder} />
@@ -45,8 +53,7 @@ function Select({ label, placeholder = 'Selectionner...', options, value, defaul
           </RadixSelect.Content>
         </RadixSelect.Portal>
       </RadixSelect.Root>
-      {error && <span className="form-field__error" id={errorId}>{error}</span>}
-    </div>
+    </Field>
   );
 }
 

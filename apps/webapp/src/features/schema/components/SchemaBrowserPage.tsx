@@ -4,9 +4,11 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { RefreshCw, Search, Table2 } from 'lucide-react';
 import { Badge } from '@/components/Badge/Badge';
 import { Button } from '@/components/Button/Button';
+import { Callout } from '@/components/Callout/Callout';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { FormError } from '@/components/FormError/FormError';
 import { Input } from '@/components/Input/Input';
+import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { getDatasource } from '@/api/datasources';
 import { datasourceKeys, schemaKeys } from '@/api/query-keys';
 import {
@@ -93,32 +95,28 @@ function SchemaBrowserPage() {
 
   return (
     <div className="schema-browser">
-      <header className="schema-browser__header">
-        <div>
-          <h1 className="schema-browser__title">
-            {datasourceQuery.data?.name ?? 'Schema'}
-          </h1>
-          <p className="schema-browser__subtitle">
-            {schema.syncedAt
-              ? `Last synced ${new Date(schema.syncedAt).toLocaleString()}`
-              : 'Never synced'}
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          icon={<RefreshCw size={16} />}
-          disabled={syncMutation.isPending}
-          onClick={() => syncMutation.mutate()}
-        >
-          {syncMutation.isPending ? 'Syncing…' : 'Re-sync'}
-        </Button>
-      </header>
+      <PageHeader
+        title={datasourceQuery.data?.name ?? 'Schema'}
+        subtitle={
+          schema.syncedAt
+            ? `Last synced ${new Date(schema.syncedAt).toLocaleString()}`
+            : 'Never synced'
+        }
+        actions={
+          <Button
+            variant="secondary"
+            icon={<RefreshCw size={16} />}
+            disabled={syncMutation.isPending}
+            onClick={() => syncMutation.mutate()}
+          >
+            {syncMutation.isPending ? 'Syncing…' : 'Re-sync'}
+          </Button>
+        }
+      />
 
       {syncMutation.error && <FormError message={syncMutation.error.message} />}
       {syncResult && (
-        <div className="schema-browser__sync-result" role="status">
-          {formatSyncResult(syncResult)}
-        </div>
+        <Callout variant="success">{formatSyncResult(syncResult)}</Callout>
       )}
 
       {neverSynced ? (

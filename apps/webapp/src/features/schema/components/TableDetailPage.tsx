@@ -157,7 +157,7 @@ function TableDetailPage() {
                       PK
                     </span>
                   )}
-                  {column.isPii && <Badge label="PII" variant="warning" />}
+                  {column.isPii && <Badge label="PII" variant="pii" />}
                 </span>
               </button>
 

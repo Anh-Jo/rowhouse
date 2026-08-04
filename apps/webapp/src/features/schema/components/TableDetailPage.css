@@ -11,9 +11,10 @@
   align-items: center;
   gap: var(--space-2);
   align-self: flex-start;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-13);
   color: var(--color-text-secondary);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
 
 .table-detail__back:hover {
@@ -26,10 +27,12 @@
   gap: var(--space-3);
 }
 
+/* The table name is a schema identifier: mono voice, tightened */
 .table-detail__title {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  font-family: monospace;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-22);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
   color: var(--color-text);
 }
 
@@ -44,14 +47,18 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
 }
 
 .table-detail__column {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.table-detail__column:last-child {
+  border-bottom: none;
 }
 
 /* The whole row is the expand/collapse control — a large tap target on
@@ -61,27 +68,29 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   background: none;
   border: none;
   cursor: pointer;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-14);
   color: var(--color-text);
   text-align: left;
+  transition: background-color var(--transition-fast);
 }
 
 .table-detail__column-row:hover {
-  background: var(--color-border-light);
+  background: var(--color-row-hover);
 }
 
 .table-detail__column-chevron {
   display: flex;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
 .table-detail__column-name {
-  font-family: monospace;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
   font-weight: var(--font-weight-medium);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -90,8 +99,9 @@
 
 .table-detail__column-type {
   flex: 1;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -108,23 +118,25 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px var(--space-2);
+  padding: 1px var(--space-2);
   border-radius: var(--radius-full);
-  background: var(--color-info-light);
-  color: var(--color-info-dark);
-  font-size: var(--font-size-xs);
+  background: var(--color-info-subtle);
+  border: var(--border-width) solid var(--color-info-border);
+  color: var(--color-info-text);
+  font-size: var(--font-size-12);
   font-weight: var(--font-weight-semibold);
 }
 
 .table-detail__column-fk {
-  padding: 0 var(--space-4) var(--space-3) calc(var(--space-4) + 16px + var(--space-3));
-  font-size: var(--font-size-sm);
+  padding: 0 var(--space-3) var(--space-2)
+    calc(var(--space-3) + 16px + var(--space-3));
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
   color: var(--color-text-secondary);
-  font-family: monospace;
 }
 
 .table-detail__column-fk a {
-  color: var(--color-info-dark);
+  color: var(--color-accent-text);
 }
 
 .table-detail__column-editor {
@@ -133,8 +145,8 @@
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-4);
-  border-top: 1px solid var(--color-border-light);
-  background: var(--color-background);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
 }
 
 .table-detail__column-editor > .form-field {
