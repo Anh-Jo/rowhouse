@@ -1,0 +1,131 @@
+.connect-page {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.connect-page__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.connect-page__subtitle {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.connect-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.connect-page__fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.connect-page__legend {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.connect-page__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.connect-page__row {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: var(--space-4);
+}
+
+.connect-page__roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* Connection test outcome panels */
+.connect-result {
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+}
+
+.connect-result--ok {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  background: var(--color-success-light);
+  color: var(--color-success-dark);
+  border: 1px solid var(--color-success);
+}
+
+.connect-result--failed {
+  background: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  border: 1px solid var(--color-danger);
+}
+
+.connect-result__headline {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+}
+
+.connect-result__problems {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.connect-result__problem {
+  padding-left: var(--space-4);
+  position: relative;
+}
+
+.connect-result__problem::before {
+  content: '•';
+  position: absolute;
+  left: var(--space-1);
+}
+
+/* The guardrail failure (read-only role can write) gets its own callout —
+   it is the one problem a user must never scroll past. */
+.connect-result__problem--critical {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
+.connect-result__problem--critical::before {
+  content: none;
+}
+
+/* Mobile (< 768px): stack the role fieldsets, keep host/port side by side. */
+@media (max-width: 767px) {
+  .connect-page__roles {
+    grid-template-columns: 1fr;
+  }
+}
