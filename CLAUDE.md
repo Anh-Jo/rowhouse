@@ -135,7 +135,9 @@ rowhouse/
 
 ## Ports
 
-- **Dev (3xxx)**: PostgreSQL 3010, Mailpit SMTP 3020, Mailpit UI 3021
+- **Dev (3xxx)**: PostgreSQL 3010, Sample target DB (PostgreSQL) 3011, Mailpit SMTP 3020, Mailpit UI 3021
+
+`sample-db` is the seeded dev **target** database (a stand-in for a customer DB, distinct from the app's own database) used to develop/test the explorer and connection guardrails: host `localhost`, port `3011`, database `sampledb`, roles `rowhouse_ro`/`rowhouse_rw` (passwords same as the role names).
 - **Test (4xxx)**: PostgreSQL 4010, Mailpit SMTP 4020, Mailpit UI 4021
 - **Monitoring (5xxx)**: Prometheus 5010, Loki 5020, Grafana 5030
 - **App**: Backend 3000, Frontend 5173
