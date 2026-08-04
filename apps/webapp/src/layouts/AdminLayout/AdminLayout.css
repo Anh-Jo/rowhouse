@@ -5,7 +5,7 @@
 
 .admin-layout__main {
   flex: 1;
-  margin-left: calc(var(--sidebar-width) + var(--sidebar-inset) * 2);
+  margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
 }
@@ -14,4 +14,17 @@
   flex: 1;
   padding: var(--space-6);
   overflow-y: auto;
+}
+
+/* Mobile (< 768px): the sidebar docks to the bottom (see TahoeAdminSidebar.css),
+   so the main column takes the full width and clears the bottom bar. */
+@media (max-width: 767px) {
+  .admin-layout__main {
+    margin-left: 0;
+  }
+
+  .admin-layout__content {
+    padding: var(--space-4);
+    padding-bottom: calc(var(--bottomnav-height) + var(--space-4));
+  }
 }

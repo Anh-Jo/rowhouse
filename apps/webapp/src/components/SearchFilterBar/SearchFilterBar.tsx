@@ -6,7 +6,7 @@ import './SearchFilterBar.css';
 function SearchFilterBar({
   searchValue,
   onSearchChange,
-  searchPlaceholder = 'Rechercher...',
+  searchPlaceholder = 'Search…',
   filters = [],
   className,
 }: SearchFilterBarProps) {
@@ -18,7 +18,7 @@ function SearchFilterBar({
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
           icon={<Search size={16} />}
-          aria-label="Rechercher"
+          aria-label="Search"
         />
       </div>
       {filters.length > 0 && (

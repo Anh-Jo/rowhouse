@@ -1,0 +1,4 @@
+/* FormError is a Callout with the form's compact rhythm. */
+.form-error {
+  font-size: var(--font-size-13);
+}

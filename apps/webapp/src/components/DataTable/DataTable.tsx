@@ -3,7 +3,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import type { DataTableProps, SortDirection } from './types';
 import './DataTable.css';
 
-function DataTable<T>({ columns, data, keyExtractor, onRowClick, actions, emptyMessage = 'Aucune donnee', className }: DataTableProps<T>) {
+function DataTable<T>({ columns, data, keyExtractor, onRowClick, actions, emptyMessage = 'No rows', className }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>(null);
 
@@ -27,7 +27,7 @@ function DataTable<T>({ columns, data, keyExtractor, onRowClick, actions, emptyM
       const bVal = col.sortValue ? col.sortValue(b) : String(col.render(b));
       const cmp = typeof aVal === 'number' && typeof bVal === 'number'
         ? aVal - bVal
-        : String(aVal).localeCompare(String(bVal), 'fr', { numeric: true });
+        : String(aVal).localeCompare(String(bVal), 'en', { numeric: true });
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }, [data, sortKey, sortDir, columns]);

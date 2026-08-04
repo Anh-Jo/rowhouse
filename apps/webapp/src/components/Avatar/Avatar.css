@@ -3,28 +3,30 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
-  background-color: var(--color-primary);
-  color: var(--color-text-inverse);
+  background-color: var(--color-accent-subtle);
+  border: var(--border-width) solid var(--color-accent-border);
+  color: var(--color-accent-text);
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .avatar--sm {
-  width: 28px;
-  height: 28px;
-  font-size: var(--font-size-xs);
+  width: 24px;
+  height: 24px;
+  font-size: var(--font-size-12);
 }
 
 .avatar--md {
-  width: 36px;
-  height: 36px;
-  font-size: var(--font-size-sm);
+  width: 32px;
+  height: 32px;
+  font-size: var(--font-size-13);
 }
 
 .avatar--lg {
-  width: 48px;
-  height: 48px;
-  font-size: var(--font-size-md);
+  width: 40px;
+  height: 40px;
+  font-size: var(--font-size-16);
 }
 
 .avatar__initials {

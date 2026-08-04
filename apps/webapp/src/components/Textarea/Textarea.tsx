@@ -1,25 +1,35 @@
-import type { TextareaHTMLAttributes } from 'react';
+import type { ComponentProps } from 'react';
+import { Field } from '@/components/Field/Field';
 import './Textarea.css';
 
-type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
+type TextareaProps = ComponentProps<'textarea'> & {
   label?: string;
   error?: string;
+  hint?: string;
 };
 
-function Textarea({ label, error, className = '', id, ...props }: TextareaProps) {
+function Textarea({ label, error, hint, className = '', id, ...props }: TextareaProps) {
   const textareaId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
   const errorId = textareaId ? `${textareaId}-error` : undefined;
 
   return (
-    <div className={`form-field textarea-field ${error ? 'textarea-field--error' : ''} ${className}`}>
-      {label && (
-        <label className="form-field__label" htmlFor={textareaId}>
-          {label}
-        </label>
-      )}
-      <textarea className="textarea-field__input" id={textareaId} rows={4} aria-invalid={!!error} aria-describedby={error ? errorId : undefined} {...props} />
-      {error && <span className="form-field__error" id={errorId}>{error}</span>}
-    </div>
+    <Field
+      label={label}
+      hint={hint}
+      error={error}
+      htmlFor={textareaId}
+      errorId={errorId}
+      className={`textarea-field${error ? ' textarea-field--error' : ''}${className ? ` ${className}` : ''}`}
+    >
+      <textarea
+        className="textarea-field__input"
+        id={textareaId}
+        rows={4}
+        aria-invalid={!!error}
+        aria-describedby={error ? errorId : undefined}
+        {...props}
+      />
+    </Field>
   );
 }
 

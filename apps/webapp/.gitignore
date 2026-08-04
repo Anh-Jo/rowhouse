@@ -9,6 +9,8 @@ lerna-debug.log*
 
 node_modules
 dist
+# Storybook build output (pnpm build-storybook)
+storybook-static
 /src/api/generated
 dist-ssr
 *.local

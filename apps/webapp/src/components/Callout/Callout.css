@@ -1,0 +1,62 @@
+.callout {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-normal);
+}
+
+.callout__icon {
+  display: flex;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.callout__icon:empty {
+  display: none;
+}
+
+.callout__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.callout__title {
+  font-weight: var(--font-weight-semibold);
+}
+
+.callout--info {
+  background: var(--color-info-subtle);
+  border-color: var(--color-info-border);
+  color: var(--color-info-text);
+}
+
+.callout--success {
+  background: var(--color-success-subtle);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
+}
+
+.callout--warning {
+  background: var(--color-warning-subtle);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-text);
+}
+
+.callout--danger {
+  background: var(--color-danger-subtle);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+
+/* PII / sensitive: same warm amber-brown as PII badges and masked cells */
+.callout--pii {
+  background: var(--color-pii-subtle);
+  border-color: var(--color-pii-border);
+  color: var(--color-pii-text);
+}

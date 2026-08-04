@@ -1,0 +1,110 @@
+.connect-page {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Role-creation snippet: collapsed by default — helpful, never in the way. */
+.connect-page__sql {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.connect-page__sql-summary {
+  font-size: var(--font-size-13);
+  color: var(--color-accent-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.connect-page__sql-summary:hover {
+  text-decoration: underline;
+}
+
+.connect-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.connect-page__fieldset {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.connect-page__legend {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.connect-page__hint {
+  font-size: var(--font-size-12);
+  color: var(--color-text-secondary);
+}
+
+.connect-page__row {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: var(--space-4);
+}
+
+.connect-page__roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* Problems list inside the failure Callout */
+.connect-result__problems {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.connect-result__problem {
+  padding-left: var(--space-4);
+  position: relative;
+}
+
+.connect-result__problem::before {
+  content: '•';
+  position: absolute;
+  left: var(--space-1);
+}
+
+/* The guardrail failure (read-only role can write) gets its own callout —
+   it is the one problem a user must never scroll past. */
+.connect-result__problem--critical {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+}
+
+.connect-result__problem--critical::before {
+  content: none;
+}
+
+/* Mobile (< 768px): stack the role fieldsets, keep host/port side by side. */
+@media (max-width: 767px) {
+  .connect-page__roles {
+    grid-template-columns: 1fr;
+  }
+}

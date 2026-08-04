@@ -13,9 +13,9 @@ const meta: Meta<typeof AdminLayout> = {
             <Route
               index
               element={
-                <div style={{ padding: '2rem' }}>
-                  <h2>Tableau de Bord</h2>
-                  <p style={{ color: 'var(--color-text-secondary)' }}>Admin content placeholder</p>
+                <div style={{ padding: 'var(--space-8)' }}>
+                  <h2>Datasources</h2>
+                  <p style={{ color: 'var(--color-text-secondary)' }}>App shell placeholder content</p>
                 </div>
               }
             />
