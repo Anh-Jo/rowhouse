@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PostgresExternalDatasource } from './postgres.external-datasource';
 import { QueryEngine } from './query-engine.service';
+import { RowReader } from './row-reader.service';
 import { TargetConnectionFactory } from './target-connection.factory';
 import { CredentialVault } from './vault/credential-vault.service';
 import { EnvKeyProvider, KEY_PROVIDER } from './vault/env-key-provider';
@@ -17,10 +18,11 @@ import { EnvKeyProvider, KEY_PROVIDER } from './vault/env-key-provider';
     CredentialVault,
     PostgresExternalDatasource,
     QueryEngine,
+    RowReader,
     // Envelope encryption behind a DI token (decision D10): production swaps
     // this binding for a KMS-backed provider, nothing else changes.
     { provide: KEY_PROVIDER, useClass: EnvKeyProvider },
   ],
-  exports: [TargetConnectionFactory, CredentialVault, QueryEngine],
+  exports: [TargetConnectionFactory, CredentialVault, QueryEngine, RowReader],
 })
 export class TargetDbModule {}
