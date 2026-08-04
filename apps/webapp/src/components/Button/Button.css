@@ -7,8 +7,11 @@
   border-radius: var(--radius-lg);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
   white-space: nowrap;
   user-select: none;
   line-height: 1;
@@ -74,6 +77,16 @@
 
 .btn--ghost:hover:not(:disabled) {
   background-color: var(--color-border-light);
+}
+
+/* Accent: the one ember action of a view — a story has at most one */
+.btn--accent {
+  background-color: var(--color-accent);
+  color: var(--color-text-inverse);
+}
+
+.btn--accent:hover:not(:disabled) {
+  background-color: var(--color-accent-strong);
 }
 
 .btn--danger {

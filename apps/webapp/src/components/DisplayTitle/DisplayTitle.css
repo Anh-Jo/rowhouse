@@ -1,0 +1,25 @@
+.display-title {
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-black);
+  line-height: var(--line-height-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--color-text);
+  text-wrap: balance;
+}
+
+.display-title--lg {
+  font-size: var(--font-size-display-lg);
+}
+
+.display-title--md {
+  font-size: var(--font-size-display-md);
+}
+
+.display-title--sm {
+  font-size: var(--font-size-display-sm);
+  letter-spacing: var(--tracking-tight);
+}
+
+.display-title__accent {
+  color: var(--color-accent);
+}

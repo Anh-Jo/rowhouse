@@ -1,0 +1,38 @@
+.underline-tabs {
+  display: flex;
+  gap: var(--space-6);
+  border-bottom: var(--border-hairline);
+}
+
+.underline-tabs__tab {
+  position: relative;
+  padding: var(--space-3) 0;
+  border: none;
+  background: none;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.underline-tabs__tab:hover {
+  color: var(--color-text);
+}
+
+.underline-tabs__tab[data-state='active'] {
+  color: var(--color-text);
+}
+
+/* The 2px marker overlaps the list hairline instead of pushing the label up */
+.underline-tabs__tab[data-state='active']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background-color: var(--color-accent);
+}

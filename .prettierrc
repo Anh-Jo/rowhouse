@@ -1,0 +1,12 @@
+{
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "overrides": [
+    {
+      "//": "jsonc configs are read by tools that JSON.parse after stripping comments — a trailing comma breaks them",
+      "files": ["*.json", "*.jsonc"],
+      "options": { "trailingComma": "none" }
+    }
+  ]
+}

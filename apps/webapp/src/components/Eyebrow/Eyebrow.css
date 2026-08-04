@@ -1,0 +1,23 @@
+.eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  line-height: var(--line-height-tight);
+}
+
+.eyebrow--default {
+  color: var(--color-text-secondary);
+}
+
+.eyebrow--accent {
+  color: var(--color-accent);
+}
+
+.eyebrow__separator {
+  color: var(--color-ink-200);
+}

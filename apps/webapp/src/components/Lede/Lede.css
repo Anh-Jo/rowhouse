@@ -1,0 +1,13 @@
+.lede {
+  max-width: var(--measure-text);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-ink-700);
+  letter-spacing: var(--tracking-tight);
+}
+
+.lede__highlight {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}

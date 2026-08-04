@@ -1,0 +1,31 @@
+.info-tip__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-ink-300);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.info-tip__trigger:hover,
+.info-tip__trigger[data-state='open'] {
+  color: var(--color-accent);
+}
+
+.info-tip__panel {
+  min-width: 0;
+  max-width: 20rem;
+  border-radius: var(--radius-md);
+}
+
+.info-tip__body {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-ink-700);
+}

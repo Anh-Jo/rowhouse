@@ -1,0 +1,59 @@
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  background-color: transparent;
+  /* Transparent by default so the selected state does not shift the baseline */
+  border-bottom: 2px solid transparent;
+  text-align: left;
+  min-width: 0;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.stat-card__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-tight);
+}
+
+.stat-card__value {
+  font-size: var(--font-size-metric);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+  line-height: var(--line-height-tight);
+}
+
+.stat-card__unit {
+  font-weight: var(--font-weight-medium);
+}
+
+.stat-card__empty {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+
+.stat-card--active {
+  background-color: var(--color-accent-soft);
+  border-bottom-color: var(--color-accent);
+}
+
+.stat-card--interactive {
+  cursor: pointer;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.stat-card--interactive:hover:not(.stat-card--active) {
+  background-color: var(--color-rule-soft);
+}

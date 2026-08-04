@@ -3,6 +3,7 @@ body {
   font-size: var(--font-size-base);
   color: var(--color-text);
   background-color: var(--color-background);
+  letter-spacing: var(--tracking-normal);
 }
 
 #root {
@@ -20,24 +21,67 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--color-rule-strong);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted-light);
+  background: var(--color-ink-300);
 }
 
 /* Focus visible */
 :focus-visible {
-  outline: 2px solid var(--color-info);
+  outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+::selection {
+  background-color: var(--color-ember-100);
+  color: var(--color-ink-900);
+}
+
+/* ── Editorial primitives ──
+   Class-level utilities the components share. They exist here (not duplicated
+   per component) because they encode system-wide rules: the small-caps label
+   voice, tabular figures for anything numeric, and the hairline rule. */
+
+/* The uppercase, wide-tracked micro label used for every field/section title */
+.ds-label {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* Figures must never dance when a value updates */
+.ds-numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.ds-rule {
+  border: 0;
+  border-top: var(--border-hairline);
+}
+
+.ds-link {
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-rule-strong);
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.ds-link:hover {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
 }
 
 /* Card base */
 .card-base {
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   display: flex;
@@ -49,13 +93,15 @@ body {
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .form-field__label {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
 }
 
 .form-field__error {
@@ -69,7 +115,7 @@ body {
   top: 2px;
   right: 2px;
   background-color: var(--color-danger);
-  color: white;
+  color: var(--color-text-inverse);
   font-size: 11px;
   font-weight: 600;
   min-width: 18px;

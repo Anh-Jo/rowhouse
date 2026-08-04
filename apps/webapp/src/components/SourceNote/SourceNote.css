@@ -1,0 +1,24 @@
+.source-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs);
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.source-note__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.source-note--live .source-note__dot {
+  background-color: var(--color-accent);
+}
+
+.source-note--final .source-note__dot {
+  background-color: var(--color-ink-300);
+}

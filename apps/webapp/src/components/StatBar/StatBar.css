@@ -1,0 +1,26 @@
+.stat-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  border-bottom: var(--border-hairline);
+  background-color: var(--color-surface);
+}
+
+/* Each cell carries its own top rule, so a bar that wraps onto a second row
+   keeps a hairline between rows — the first row draws the bar's top rule. */
+.stat-bar > * {
+  border-top: var(--border-hairline);
+}
+
+.stat-bar > * + * {
+  border-left: var(--border-hairline);
+}
+
+@media (max-width: 40rem) {
+  .stat-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-bar > * + * {
+    border-left: none;
+  }
+}

@@ -41,9 +41,9 @@
         "src/api/client.ts",
         "src/api/query-keys.ts",
         // scaffolding components: available building blocks, not yet used by a page
+        // (Popover left this list when InfoTip started building on it)
         "src/components/EmptyState/EmptyState.tsx",
-        "src/components/Icon/Icon.tsx",
-        "src/components/Popover/Popover.tsx"
+        "src/components/Icon/Icon.tsx"
       ],
       // declared data-fetching/forms stack, wired by the first real feature
       "ignoreDependencies": ["react-hook-form", "openapi-react-query"]

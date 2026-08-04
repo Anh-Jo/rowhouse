@@ -1,0 +1,72 @@
+.ranked-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ranked-list__row + .ranked-list__row {
+  border-top: 1px solid var(--color-rule-soft);
+}
+
+.ranked-list__button,
+.ranked-list__static {
+  display: grid;
+  grid-template-columns: 1.75rem 1fr auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) 0;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+.ranked-list__button {
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.ranked-list__button:hover {
+  color: var(--color-accent);
+}
+
+.ranked-list__rank {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.ranked-list__label {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.ranked-list__value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.ranked-list__unit {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-secondary);
+}
+
+.ranked-list__row--selected {
+  /* Rule on the left edge instead of a filled row: the data keeps the colour */
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
+.ranked-list__row--selected .ranked-list__button,
+.ranked-list__row--selected .ranked-list__static {
+  padding-left: var(--space-3);
+  color: var(--color-accent);
+}
+
+.ranked-list__empty {
+  padding: var(--space-4) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

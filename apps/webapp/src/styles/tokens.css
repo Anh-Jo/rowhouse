@@ -1,53 +1,120 @@
+/**
+ * Design tokens — "Ember" editorial data system.
+ *
+ * The system is built for data journalism: warm paper surfaces, near-black ink,
+ * a single ember accent reserved for the data itself, hairline rules instead of
+ * shadows, and squared corners. Everything below is a token — components never
+ * hardcode a colour, a size or a duration.
+ *
+ * Layers:
+ *   1. Primitives  (--color-ink-*, --color-ember-*, --color-scale-*)  raw values
+ *   2. Semantics   (--color-text, --color-accent, --color-rule)       intent
+ *   3. Legacy alias block at the end keeps pre-existing components working.
+ */
 :root {
-  /* ── Colors ── */
-  --color-primary: #1e293b;
-  --color-primary-light: #334155;
-  --color-primary-dark: #0f172a;
+  /* ─────────────────────────────────────────────────────────────
+   * 1. PRIMITIVES
+   * ───────────────────────────────────────────────────────────── */
 
-  --color-success: #10b981;
-  --color-success-light: #d1fae5;
-  --color-success-dark: #059669;
+  /* Ink — warm near-black neutrals (never pure #000, it reads cold on paper) */
+  --color-ink-900: #16110f;
+  --color-ink-800: #241d19;
+  --color-ink-700: #3d3531;
+  --color-ink-500: #6d635d;
+  --color-ink-300: #9a908a;
+  --color-ink-200: #c0b5ad;
+  --color-ink-100: #ded4cc;
 
-  --color-warning: #f59e0b;
-  --color-warning-light: #fef3c7;
-  --color-warning-dark: #d97706;
-
-  --color-danger: #ef4444;
-  --color-danger-light: #fee2e2;
-  --color-danger-dark: #dc2626;
-
-  --color-info: #3b82f6;
-  --color-info-light: #dbeafe;
-  --color-info-dark: #2563eb;
-
-  --color-muted: #6b7280;
-  --color-muted-light: #9ca3af;
-
-  --color-background: #f8f9fa;
+  /* Paper — the warm off-white surfaces the ink sits on */
+  --color-paper: #fdfbf9;
+  --color-paper-warm: #f7efe8;
+  --color-paper-deep: #f1e6dd;
   --color-surface: #ffffff;
-  --color-border: #e5e7eb;
-  --color-border-light: #f3f4f6;
 
-  --color-text: #1e293b;
-  --color-text-secondary: #6b7280;
-  --color-text-inverse: #ffffff;
+  /* Ember — the accent ramp. Reserved for data, live state and emphasis. */
+  --color-ember-50: #fbf1ec;
+  --color-ember-100: #f4ddd2;
+  --color-ember-200: #e8bda9;
+  --color-ember-300: #d9977c;
+  --color-ember-400: #c56f4f;
+  --color-ember-500: #b0512f;
+  --color-ember-600: #a03a22;
+  --color-ember-700: #862d1a;
+  --color-ember-800: #6b2314;
 
-  --color-overlay: rgba(0, 0, 0, 0.4);
+  /* Sequential data scale — choropleths, heatmaps, intensity ramps.
+     scale-0 is "measured, near zero"; scale-empty is "no data at all". */
+  --color-scale-0: #efe4dc;
+  --color-scale-1: #e2cabd;
+  --color-scale-2: #d0a58f;
+  --color-scale-3: #bc7c60;
+  --color-scale-4: #a9573a;
+  --color-scale-5: #8f3a20;
+  --color-scale-empty: #f3eeea;
 
-  /* Contract type colors */
-  --color-emprunteur: #3b82f6;
-  --color-emprunteur-bg: #dbeafe;
-  --color-rc-pro: #ec4899;
-  --color-rc-pro-bg: #fce7f3;
-  --color-sante: #10b981;
-  --color-sante-bg: #d1fae5;
-  --color-prevoyance: #8b5cf6;
-  --color-prevoyance-bg: #ede9fe;
-  --color-decennale: #f59e0b;
-  --color-decennale-bg: #fef3c7;
+  /* Categorical series — muted earth tones that hold up next to the ember ramp */
+  --color-series-1: #a03a22;
+  --color-series-2: #3f6f6a;
+  --color-series-3: #8a6d3b;
+  --color-series-4: #5b5f8a;
+  --color-series-5: #7a4f6d;
+  --color-series-1-bg: #f7e6df;
+  --color-series-2-bg: #e2eceb;
+  --color-series-3-bg: #f1ebdd;
+  --color-series-4-bg: #e6e7f0;
+  --color-series-5-bg: #efe4ec;
 
-  /* ── Typography ── */
-  --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* ─────────────────────────────────────────────────────────────
+   * 2. SEMANTIC COLOURS
+   * ───────────────────────────────────────────────────────────── */
+  --color-text: var(--color-ink-900);
+  --color-text-secondary: var(--color-ink-500);
+  --color-text-muted: var(--color-ink-300);
+  --color-text-inverse: var(--color-paper);
+
+  --color-background: var(--color-paper);
+  --color-surface-warm: var(--color-paper-warm);
+
+  /* Accent = ember. Only one accent: if everything is highlighted, nothing is. */
+  --color-accent: var(--color-ember-600);
+  --color-accent-strong: var(--color-ember-700);
+  --color-accent-soft: var(--color-ember-50);
+  --color-accent-border: var(--color-ember-200);
+
+  /* Rules — the system separates with hairlines, not with shadows */
+  --color-rule: #e5dbd3;
+  --color-rule-strong: #d3c6bc;
+  --color-rule-soft: #f1e9e3;
+  --border-hairline: 1px solid var(--color-rule);
+
+  /* Status — earthy, so a state badge never outshouts the data */
+  --color-success: #3f6f4a;
+  --color-success-light: #e4eee6;
+  --color-success-dark: #2f5637;
+  --color-warning: #b8791f;
+  --color-warning-light: #f7ecd8;
+  --color-warning-dark: #8d5b13;
+  --color-danger: #a3302a;
+  --color-danger-light: #f6e2e0;
+  --color-danger-dark: #7d221d;
+  --color-info: #3a5f7d;
+  --color-info-light: #e2eaf1;
+  --color-info-dark: #2a4a63;
+
+  --color-overlay: rgba(22, 17, 15, 0.45);
+  --color-focus-ring: var(--color-ember-500);
+
+  /* ─────────────────────────────────────────────────────────────
+   * 3. TYPOGRAPHY
+   * ───────────────────────────────────────────────────────────── */
+  --font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+  /* Display reuses the text face at black weight + negative tracking: the
+     headline voice comes from weight and tracking, not from a second webfont. */
+  --font-family-display: var(--font-family);
+  --font-family-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  /* Text scale */
+  --font-size-2xs: 0.6875rem;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
   --font-size-base: 0.875rem;
@@ -57,16 +124,33 @@
   --font-size-2xl: 1.5rem;
   --font-size-3xl: 1.875rem;
 
+  /* Display scale — fluid, so a headline never breaks on a phone */
+  --font-size-display-sm: clamp(1.5rem, 3vw, 1.875rem);
+  --font-size-display-md: clamp(2rem, 5vw, 3rem);
+  --font-size-display-lg: clamp(2.25rem, 7vw, 4rem);
+  /* Metric = the number inside a stat cell */
+  --font-size-metric: clamp(1.25rem, 2.4vw, 1.625rem);
+
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+  --font-weight-black: 800;
 
-  --line-height-tight: 1.25;
+  --line-height-display: 0.98;
+  --line-height-tight: 1.2;
   --line-height-normal: 1.5;
-  --line-height-relaxed: 1.75;
+  --line-height-relaxed: 1.7;
 
-  /* ── Spacing ── */
+  /* Tracking — the small-caps labels are the signature of the system */
+  --tracking-display: -0.035em;
+  --tracking-tight: -0.012em;
+  --tracking-normal: 0;
+  --tracking-label: 0.14em;
+
+  /* ─────────────────────────────────────────────────────────────
+   * 4. SPACE / SHAPE / MOTION
+   * ───────────────────────────────────────────────────────────── */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -78,33 +162,60 @@
   --space-12: 3rem;
   --space-16: 4rem;
 
-  /* ── Border radius ── */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  /* Squared by default: an editorial surface reads as printed, not as an app chip */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
   --radius-full: 9999px;
 
-  /* ── Shadows ── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  /* Warm, barely-there elevation — reserved for overlays (popover, dialog) */
+  --shadow-sm: 0 1px 2px rgba(60, 40, 30, 0.06);
+  --shadow-md: 0 4px 12px rgba(60, 40, 30, 0.08);
+  --shadow-lg: 0 12px 32px rgba(60, 40, 30, 0.12);
 
-  /* ── Transitions ── */
-  --transition-fast: 150ms ease;
+  --transition-fast: 120ms ease;
   --transition-base: 200ms ease;
-  --transition-slow: 300ms ease;
+  --transition-slow: 320ms ease;
 
-  /* ── Layout ── */
+  /* ─────────────────────────────────────────────────────────────
+   * 5. LAYOUT
+   * ───────────────────────────────────────────────────────────── */
+  --measure-text: 34rem; /* readable line length for the lede / body copy */
+  --content-max: 78rem;
+  --rail-width: 20rem; /* the right-hand detail rail of a data story */
   --sidebar-width: 220px;
   --topbar-height: 64px;
   --bottomnav-height: 64px;
 
-  /* Tahoe floating sidebar */
   --sidebar-inset: 12px;
-  --sidebar-radius-outer: 16px;
-  --sidebar-bg: rgba(255, 255, 255, 0.78);
+  --sidebar-radius-outer: 8px;
+  --sidebar-bg: rgba(253, 251, 249, 0.82);
   --sidebar-blur: 20px;
-  --sidebar-shadow-tahoe: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --sidebar-shadow-tahoe: 0 8px 32px rgba(60, 40, 30, 0.08), 0 2px 8px rgba(60, 40, 30, 0.04);
   --sidebar-border-tahoe: 1px solid rgba(255, 255, 255, 0.6);
+
+  /* ─────────────────────────────────────────────────────────────
+   * 6. LEGACY ALIASES
+   * Names the pre-Ember components were written against. Kept so the whole
+   * library re-skins from the tokens above; prefer the semantic names in new code.
+   * ───────────────────────────────────────────────────────────── */
+  --color-primary: var(--color-ink-900);
+  --color-primary-light: var(--color-ink-700);
+  --color-primary-dark: #000000;
+  --color-muted: var(--color-ink-500);
+  --color-muted-light: var(--color-ink-300);
+  --color-border: var(--color-rule);
+  --color-border-light: var(--color-rule-soft);
+
+  --color-emprunteur: var(--color-series-4);
+  --color-emprunteur-bg: var(--color-series-4-bg);
+  --color-rc-pro: var(--color-series-5);
+  --color-rc-pro-bg: var(--color-series-5-bg);
+  --color-sante: var(--color-series-2);
+  --color-sante-bg: var(--color-series-2-bg);
+  --color-prevoyance: var(--color-series-3);
+  --color-prevoyance-bg: var(--color-series-3-bg);
+  --color-decennale: var(--color-series-1);
+  --color-decennale-bg: var(--color-series-1-bg);
 }

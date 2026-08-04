@@ -1,0 +1,24 @@
+.masthead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-10) var(--space-6) var(--space-8);
+  /* Warm wash fading into the paper: the heat of the subject, not a brand fill */
+  background:
+    radial-gradient(120% 90% at 85% 0%, var(--color-ember-50) 0%, rgba(251, 241, 236, 0) 60%),
+    linear-gradient(180deg, var(--color-paper-warm) 0%, var(--color-paper) 100%);
+}
+
+.masthead__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 60rem) {
+  .masthead {
+    padding: var(--space-12) var(--space-10) var(--space-10);
+  }
+}
