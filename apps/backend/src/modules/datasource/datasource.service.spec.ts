@@ -8,7 +8,10 @@ import type { PrismaService } from '@/prisma/prisma.service';
 import type { AuditService } from '@/audit/audit.service';
 import type { CredentialVault } from '@/target-db/vault/credential-vault.service';
 import type { ConnectionProbe } from './connection-probe.service';
-import type { CreateDatasourceDto } from './datasource.dto';
+import type {
+  CreateDatasourceDto,
+  UpdateDatasourceDto,
+} from './datasource.dto';
 
 const CREATE_INPUT: CreateDatasourceDto = {
   name: 'Main DB',
@@ -147,6 +150,64 @@ describe('DatasourceService', () => {
       await expect(
         service.create('ws-1', 'proj-1', CREATE_INPUT),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('update', () => {
+    function buildUpdateService() {
+      const built = buildService();
+      const credentialUpdate = jest.fn().mockResolvedValue({});
+      const datasourceUpdate = jest.fn().mockResolvedValue({
+        id: 'ds-1',
+        credentials: [],
+      });
+      const prisma = (
+        built.service as unknown as { prisma: { client: unknown } }
+      ).prisma;
+      const client = prisma.client as Record<string, unknown>;
+      client.$transaction = jest.fn(
+        (fn: (tx: unknown) => Promise<unknown>): Promise<unknown> =>
+          fn({
+            datasourceCredential: { update: credentialUpdate },
+            datasource: { update: datasourceUpdate },
+          }),
+      );
+      return { ...built, credentialUpdate, datasourceUpdate };
+    }
+
+    it('re-seals only the provided role and applies connection changes', async () => {
+      const { service, credentialUpdate, datasourceUpdate, sealSecret } =
+        buildUpdateService();
+
+      await service.update('ws-1', 'proj-1', 'ds-1', {
+        host: 'new-host',
+        readOnly: { username: 'ro2', password: 'new-ro-pw' },
+      } as UpdateDatasourceDto);
+
+      expect(sealSecret).toHaveBeenCalledTimes(1);
+      expect(sealSecret).toHaveBeenCalledWith('new-ro-pw');
+      expect(credentialUpdate).toHaveBeenCalledTimes(1);
+      expect(credentialUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            datasourceId_role: { datasourceId: 'ds-1', role: 'READ_ONLY' },
+          },
+          data: expect.objectContaining({ username: 'ro2' }) as object,
+        }),
+      );
+      expect(datasourceUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { host: 'new-host' } }),
+      );
+    });
+
+    it('404s a datasource from another workspace before touching anything', async () => {
+      const { service } = buildService({ projectFound: false });
+
+      await expect(
+        service.update('ws-other', 'proj-1', 'ds-1', {
+          host: 'x',
+        } as UpdateDatasourceDto),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
