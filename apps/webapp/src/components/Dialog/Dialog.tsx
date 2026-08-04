@@ -24,7 +24,7 @@ function Dialog({ open, onOpenChange, trigger, title, description, children, cla
             <RadixDialog.Title className="dialog__title">{title}</RadixDialog.Title>
             {description && <RadixDialog.Description className="dialog__description">{description}</RadixDialog.Description>}
             <RadixDialog.Close asChild>
-              <button className="dialog__close" aria-label="Fermer">
+              <button className="dialog__close" aria-label="Close">
                 <X size={18} />
               </button>
             </RadixDialog.Close>

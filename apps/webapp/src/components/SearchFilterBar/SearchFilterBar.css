@@ -1,6 +1,6 @@
 .search-filter-bar {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   align-items: flex-end;
   flex-wrap: wrap;
 }
@@ -12,7 +12,7 @@
 
 .search-filter-bar__filters {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .search-filter-bar__filters .select-field {

@@ -9,17 +9,17 @@
 }
 
 .empty-state__icon {
-  color: var(--color-muted-light);
+  color: var(--color-text-muted);
 }
 
 .empty-state__message {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-16);
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
 .empty-state__desc {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-13);
   color: var(--color-text-secondary);
   max-width: 320px;
 }

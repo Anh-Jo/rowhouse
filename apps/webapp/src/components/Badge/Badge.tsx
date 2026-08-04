@@ -2,7 +2,7 @@ import './Badge.css';
 
 type BadgeProps = {
   label: string;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'muted';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'muted' | 'pii';
   size?: 'sm' | 'md';
   className?: string;
 };
