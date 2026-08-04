@@ -46,6 +46,32 @@ export const PartnerType: Story = {
   },
 };
 
+export const WithValue: Story = {
+  args: {
+    label: 'TLS (SSL mode)',
+    options: [
+      { value: 'REQUIRE', label: 'Required (recommended)' },
+      { value: 'DISABLE', label: 'Disabled — local databases only' },
+    ],
+    value: 'REQUIRE',
+  },
+};
+
+/* The selected value must keep the normal text color even when disabled —
+   only a genuine placeholder may render muted (regression: fieldset-disabled
+   TLS select looked like an empty placeholder). */
+export const DisabledWithValue: Story = {
+  args: {
+    label: 'TLS (SSL mode)',
+    options: [
+      { value: 'REQUIRE', label: 'Required (recommended)' },
+      { value: 'DISABLE', label: 'Disabled — local databases only' },
+    ],
+    value: 'REQUIRE',
+    disabled: true,
+  },
+};
+
 export const WithError: Story = {
   args: {
     label: 'Statut',

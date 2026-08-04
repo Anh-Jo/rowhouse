@@ -49,6 +49,23 @@ describe('Select', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('France');
   });
 
+  it('marks the trigger as placeholder only when genuinely empty', () => {
+    // [data-placeholder] drives the muted placeholder color — a selected
+    // value must never carry it, or it renders in placeholder-grey.
+    const { rerender } = render(<Select label="Pays" options={options} />);
+    expect(screen.getByRole('combobox')).toHaveAttribute('data-placeholder');
+    rerender(<Select label="Pays" options={options} value="fr" />);
+    expect(screen.getByRole('combobox')).not.toHaveAttribute('data-placeholder');
+  });
+
+  it('keeps the selected value rendered when disabled', () => {
+    render(<Select label="Pays" options={options} value="fr" disabled />);
+    const trigger = screen.getByRole('combobox');
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveTextContent('France');
+    expect(trigger).not.toHaveAttribute('data-placeholder');
+  });
+
   it('calls onValueChange prop is passed', () => {
     const onValueChange = vi.fn();
     render(<Select label="Pays" options={options} onValueChange={onValueChange} />);

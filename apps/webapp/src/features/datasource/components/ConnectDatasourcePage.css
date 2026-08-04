@@ -123,6 +123,11 @@
   content: none;
 }
 
+.connect-result__retry-hint {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
 /* Mobile (< 768px): stack the role fieldsets, keep host/port side by side. */
 @media (max-width: 767px) {
   .connect-page__roles {
