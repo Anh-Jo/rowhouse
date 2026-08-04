@@ -1,11 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import { LayoutDashboard, LogOut, ScrollText, Settings } from 'lucide-react';
 import { Avatar } from '@/components/Avatar/Avatar';
 import { signOut, useSession } from '@/api/auth-client';
 import './TahoeAdminSidebar.css';
 
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: 'Home', end: true },
+  { to: '/audit', icon: ScrollText, label: 'Audit' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
