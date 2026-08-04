@@ -26,6 +26,23 @@ export const explorerKeys = {
     datasourceId: string,
     tableId: string,
   ) => ['explorer-rows', workspaceId, projectId, datasourceId, tableId] as const,
+  // tableId AND rowKey in the key: record → record navigation (customer →
+  // order → back) must never serve one record's cache for another.
+  record: (
+    workspaceId: string,
+    projectId: string,
+    datasourceId: string,
+    tableId: string,
+    rowKey: string,
+  ) =>
+    [
+      'explorer-record',
+      workspaceId,
+      projectId,
+      datasourceId,
+      tableId,
+      rowKey,
+    ] as const,
 };
 
 export const auditKeys = {
