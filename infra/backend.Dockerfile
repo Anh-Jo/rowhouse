@@ -15,10 +15,14 @@ COPY apps/backend/package.json apps/backend/package.json
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter backend
 COPY apps/backend apps/backend
-# prisma.config.ts requires DATABASE_URL to resolve; generate never connects,
-# so a placeholder is enough at build time
+# Generate BOTH Prisma clients: the app client (prisma.config.ts → DATABASE_URL)
+# and the better-auth client (prisma.auth.config.ts → AUTH_DATABASE_URL, output
+# src/generated/auth-prisma). `database:generate` runs both; the compile step
+# imports the auth client, so skipping it breaks `nest build`. generate never
+# connects, so placeholder URLs are enough at build time.
 RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" \
-    pnpm --filter backend exec prisma generate \
+    AUTH_DATABASE_URL="postgresql://build:build@localhost:5432/build_auth" \
+    pnpm --filter backend run database:generate \
     && pnpm --filter backend run build \
     # deploy copies the package with pruned prod deps, but follows npm pack
     # rules (.gitignore) which exclude dist — copy it in explicitly
@@ -35,6 +39,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build --chown=node:node /prod/backend /app
 COPY --chown=node:node infra/backend-entrypoint.sh /app/entrypoint.sh
+COPY --chown=node:node infra/ensure-auth-db.cjs /app/ensure-auth-db.cjs
 # WORKDIR created /app owned by root; the app must be able to write there
 RUN chown node:node /app
 USER node

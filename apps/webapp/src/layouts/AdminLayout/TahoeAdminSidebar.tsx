@@ -16,7 +16,7 @@ function TahoeAdminSidebar() {
     <aside className="tahoe-sidebar">
       <div className="tahoe-sidebar__header">
         <Avatar name="S" size="md" />
-        <span className="tahoe-sidebar__brand">Starter</span>
+        <span className="tahoe-sidebar__brand">Rowhouse</span>
       </div>
 
       <nav className="tahoe-sidebar__nav" aria-label="Main navigation">

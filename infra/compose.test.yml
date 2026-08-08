@@ -15,6 +15,9 @@ services:
       POSTGRES_DB: rowhouse
     ports:
       - "4010:5432"
+    volumes:
+      # Creates the rowhouse_auth database on a fresh data volume (runs once).
+      - ./create-auth-db.sql:/docker-entrypoint-initdb.d/create-auth-db.sql:ro
 
   mailer:
     image: axllent/mailpit:latest

@@ -1,6 +1,12 @@
-# nest-starter-pack
+# Rowhouse
 
-Full-stack TypeScript starter — production-ready monorepo with NestJS, React, Prisma, and observability built in.
+Governed database workspace for ops, support and dev teams — a premium,
+multi-device explorer and safe editor on top of production databases, with an
+embedded AI agent (later phases) that works inside the governance layer, never
+around it. See [docs/plans](./docs/plans/README.md) for the master plan and
+phase index.
+
+Built from [nest-starter-pack](https://github.com/Anh-Jo/nest-starter-pack).
 
 ## Tech Stack
 
@@ -10,6 +16,7 @@ Full-stack TypeScript starter — production-ready monorepo with NestJS, React, 
 | Frontend     | React 19 + Vite + TypeScript                        |
 | Styling      | CSS + Radix UI                                      |
 | Backend      | NestJS 11 + Fastify + TypeScript                    |
+| Auth         | better-auth (session cookies, separate database)    |
 | API Contract | OpenAPI (NestJS Swagger) -> openapi-ts              |
 | Validation   | Zod v4 (env vars + DTOs via nestjs-zod)             |
 | Database     | PostgreSQL + Prisma                                 |
@@ -19,24 +26,6 @@ Full-stack TypeScript starter — production-ready monorepo with NestJS, React, 
 | Local Dev    | Docker Compose (DB + Mailpit + Monitoring)           |
 
 ## Quick Start
-
-```bash
-# Option A: click "Use this template" on the GitHub repo page, then clone your new repo
-# Option B: clone directly
-git clone https://github.com/Anh-Jo/nest-starter-pack my-project
-cd my-project
-
-# Run setup: renames the project, creates .env files, then bootstraps everything
-# (install deps → dev Docker, waits until healthy → migrations → Prisma client
-# → codegen) and offers to reinitialize git history for your new project
-chmod +x scripts/setup.sh
-./scripts/setup.sh
-
-# Start dev servers
-pnpm dev
-```
-
-Already renamed / cloning an existing project? The bootstrap alone is:
 
 ```bash
 cp apps/backend/.env.example apps/backend/.env   # gitignored — not in a fresh clone
@@ -49,8 +38,8 @@ Each step also runs on its own (all idempotent — safe to re-run):
 | Command            | What it does                                                       |
 | ------------------ | ------------------------------------------------------------------ |
 | `pnpm docker:dev`  | Start dev Postgres + Mailpit, block until Postgres is healthy      |
-| `pnpm db:migrate`  | `prisma migrate deploy` against the dev database                   |
-| `pnpm db:generate` | Generate the Prisma client (gitignored output)                     |
+| `pnpm db:migrate`  | `prisma migrate deploy` on both the app and better-auth DBs        |
+| `pnpm db:generate` | Generate both Prisma clients (gitignored output)                   |
 | `pnpm codegen`     | Backend `contracts:export` (openapi.json) → webapp `api:generate`  |
 | `pnpm verify`      | Full quality gate: codegen drift + typecheck + lint + tests + knip |
 
@@ -73,7 +62,7 @@ Each step also runs on its own (all idempotent — safe to re-run):
 ## Project Structure
 
 ```
-nest-starter-pack/
+rowhouse/
 ├── apps/
 │   ├── backend/              # NestJS + Fastify API
 │   │   ├── src/
@@ -110,9 +99,16 @@ nest-starter-pack/
 │   ├── webapp.Dockerfile     # Vite build served by nginx
 │   └── monitoring/           # Prometheus, Grafana (provisioned dashboards), Loki, Promtail
 ├── e2e/                      # Playwright E2E tests
-├── scripts/                  # setup.sh
 └── turbo.json
 ```
+
+## Authentication
+
+better-auth handles email/password sign-up/sign-in (optional Google SSO), session cookies, OTP password reset (via SMTP/Mailpit in dev) and self-service account deletion, in a **dedicated `rowhouse_auth` database**. The app keeps a minimal `User` mirror (same id) synced by lifecycle hooks.
+
+- Every route is **protected by default** (global `AuthGuard`); mark exceptions with `@Public()` and read the caller with `@CurrentUser()` — see `GET /me` in `app.controller.ts` for the reference pattern.
+- Auth routes live under `/api/auth/*` (better-auth's own REST surface); consume them with the typed better-auth client on the frontend.
+- The auth schema is generated: `pnpm --filter backend run database:generate-schema:auth` after changing the plugin set in `buildAuthOptions`.
 
 ## Adding a Backend Module
 
@@ -152,8 +148,8 @@ pnpm docker:monitoring
 
 Two dashboards are provisioned automatically in Grafana:
 
-- **Starter API** — request rate, error rate, latency percentiles (p50/p95/p99) per endpoint, status codes, endpoints overview table, Node.js runtime (memory, CPU, event loop)
-- **Starter API — Logs** — log volume by level, error stream, HTTP 5xx, slow requests (> 500 ms), live logs with level/search filters (Loki, pino JSON parsed by Promtail)
+- **Rowhouse API** — request rate, error rate, latency percentiles (p50/p95/p99) per endpoint, status codes, endpoints overview table, Node.js runtime (memory, CPU, event loop)
+- **Rowhouse API — Logs** — log volume by level, error stream, HTTP 5xx, slow requests (> 500 ms), live logs with level/search filters (Loki, pino JSON parsed by Promtail)
 
 ## Deployment
 

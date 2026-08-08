@@ -15,7 +15,12 @@ import { AppModule } from '../src/app.module';
  * build…), CI's verify job will need a database service — see verify.yml.
  */
 async function generate() {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  // abortOnError: false — with the logger disabled, the default abort-on-error
+  // path exits 1 without printing anything; throwing lets our catch report it.
+  const app = await NestFactory.create(AppModule, {
+    logger: false,
+    abortOnError: false,
+  });
 
   const config = new DocumentBuilder()
     .setTitle('Rowhouse API')
@@ -30,4 +35,7 @@ async function generate() {
   console.log('openapi.json generated');
 }
 
-void generate();
+generate().catch((error: unknown) => {
+  console.error('contracts:export failed:', error);
+  process.exitCode = 1;
+});

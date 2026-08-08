@@ -21,10 +21,13 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "database:generate-migration": "npx prisma migrate dev --name ",
+    "database:generate-migration:auth": "npx prisma migrate dev --config prisma.auth.config.ts --name ",
+    "database:generate-schema:auth": "npx @better-auth/cli generate --config src/auth/auth.cli.ts --output prisma/auth/schema.prisma --yes",
     "database:studio": "npx prisma studio",
-    "database:generate": "npx prisma generate",
-    "database:migrate": "npx prisma migrate deploy",
+    "database:generate": "npx prisma generate && npx prisma generate --config prisma.auth.config.ts",
+    "database:migrate": "npx prisma migrate deploy && npx prisma migrate deploy --config prisma.auth.config.ts",
     "database:migrate:test": "dotenv -e .env.test -- npx prisma migrate deploy",
+    "database:migrate:test:auth": "dotenv -e .env.test -- npx prisma migrate deploy --config prisma.auth.config.ts",
     "contracts:export": "nest build && node -r tsconfig-paths/register -e \"require('./dist/scripts/generate-contracts')\""
   },
   "dependencies": {
@@ -39,6 +42,7 @@
     "@nestjs/throttler": "^6.5.0",
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
+    "better-auth": "^1.6.23",
     "dotenv": "^17.3.1",
     "fastify": "^5.8.2",
     "nestjs-pino": "^4.6.1",
@@ -53,6 +57,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
     "@electric-sql/pglite": "^0.3.16",
     "@eslint/js": "^9.39.4",
     "@nestjs/cli": "^11.0.16",

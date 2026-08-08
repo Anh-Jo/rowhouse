@@ -8,12 +8,22 @@ datasource db {
   provider = "postgresql"
 }
 
-// TODO: Add your models here
-// Example:
-// model User {
+/// Mirror of the better-auth user (auth database) in the app database.
+/// `id` IS the better-auth user id — created/deleted by AuthHooks via
+/// better-auth's databaseHooks, never by app code. No email/password here:
+/// credentials live in the auth database only. Add your app-level profile
+/// fields (username, bio, avatar…) to this model.
+model User {
+  id          String   @id
+  displayName String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// TODO: Add your other models here, e.g.:
+// model Post {
 //   id        String   @id @default(cuid())
-//   email     String   @unique
-//   createdAt DateTime @default(now()) @map("created_at")
-//   updatedAt DateTime @updatedAt @map("updated_at")
-//   @@map("users")
+//   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+//   authorId  String
+//   createdAt DateTime @default(now())
 // }
