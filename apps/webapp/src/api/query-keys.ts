@@ -19,6 +19,15 @@ export const schemaKeys = {
     ['schema', workspaceId, projectId, datasourceId] as const,
 };
 
+export const explorerKeys = {
+  rows: (
+    workspaceId: string,
+    projectId: string,
+    datasourceId: string,
+    tableId: string,
+  ) => ['explorer-rows', workspaceId, projectId, datasourceId, tableId] as const,
+};
+
 export const auditKeys = {
   list: (workspaceId: string) => ['audit-events', workspaceId] as const,
 };

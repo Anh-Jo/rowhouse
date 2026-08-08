@@ -13,7 +13,8 @@ import './DatasourceListPage.css';
 
 /**
  * Landing screen of a project: its registered datasources. Each entry opens
- * the schema browser; the empty state funnels into the connect flow.
+ * the data view (the datasource's home); the empty state funnels into the
+ * connect flow.
  */
 function DatasourceListPage() {
   const { projectId = '' } = useParams();
@@ -72,7 +73,7 @@ function DatasourceListPage() {
             <li key={datasource.id}>
               <Link
                 className="datasource-list__item"
-                to={`/projects/${projectId}/datasources/${datasource.id}/schema`}
+                to={`/projects/${projectId}/datasources/${datasource.id}/data`}
               >
                 <span className="datasource-list__item-icon">
                   <Database size={20} aria-hidden />

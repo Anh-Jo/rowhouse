@@ -13,6 +13,7 @@ import { LoggerModule } from './logger/logger.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { DatasourceModule } from './modules/datasource/datasource.module';
+import { ExplorerModule } from './modules/explorer/explorer.module';
 import { IntrospectionModule } from './modules/introspection/introspection.module';
 import { ProjectModule } from './modules/project/project.module';
 import { MetricsInterceptor } from './modules/metrics/metrics.interceptor';
@@ -29,6 +30,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ProjectModule,
     DatasourceModule,
     IntrospectionModule,
+    ExplorerModule,
     ThrottlerModule.forRoot({
       skipIf: () => process.env['NODE_ENV'] === 'test',
       throttlers: [{ ttl: 60_000, limit: 60 }],

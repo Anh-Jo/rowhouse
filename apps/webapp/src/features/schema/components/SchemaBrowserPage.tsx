@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { RefreshCw, Search, Table2 } from 'lucide-react';
 import { Badge } from '@/components/Badge/Badge';
 import { Button } from '@/components/Button/Button';
@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { FormError } from '@/components/FormError/FormError';
 import { Input } from '@/components/Input/Input';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
+import { TabFilter } from '@/components/TabFilter/TabFilter';
 import { getDatasource } from '@/api/datasources';
 import { datasourceKeys, schemaKeys } from '@/api/query-keys';
 import {
@@ -33,6 +34,7 @@ function SchemaBrowserPage() {
   // The connect flow runs the first sync and hands its result over on
   // navigation, so the fresh browser shows the same feedback as a re-sync.
   const location = useLocation();
+  const navigate = useNavigate();
   const initialSyncResult =
     (location.state as { syncResult?: SyncResultDto } | null)?.syncResult ??
     null;
@@ -103,14 +105,32 @@ function SchemaBrowserPage() {
             : 'Never synced'
         }
         actions={
-          <Button
-            variant="secondary"
-            icon={<RefreshCw size={16} />}
-            disabled={syncMutation.isPending}
-            onClick={() => syncMutation.mutate()}
-          >
-            {syncMutation.isPending ? 'Syncing…' : 'Re-sync'}
-          </Button>
+          <>
+            {/* Same Data | Schema switcher as the data view — the data view
+                is the datasource's home, the schema browser one tab away. */}
+            <TabFilter
+              tabs={[
+                { value: 'data', label: 'Data' },
+                { value: 'schema', label: 'Schema' },
+              ]}
+              value="schema"
+              onValueChange={(value) => {
+                if (value === 'data') {
+                  navigate(
+                    `/projects/${projectId}/datasources/${datasourceId}/data`,
+                  );
+                }
+              }}
+            />
+            <Button
+              variant="secondary"
+              icon={<RefreshCw size={16} />}
+              disabled={syncMutation.isPending}
+              onClick={() => syncMutation.mutate()}
+            >
+              {syncMutation.isPending ? 'Syncing…' : 'Re-sync'}
+            </Button>
+          </>
         }
       />
 
