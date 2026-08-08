@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
+import { Badge } from '@/components/Badge/Badge';
 import { Button } from '@/components/Button/Button';
 import { Callout } from '@/components/Callout/Callout';
+import { Card } from '@/components/Card/Card';
 import { CodeBlock } from '@/components/CodeBlock/CodeBlock';
 import { FormError } from '@/components/FormError/FormError';
 import { Input } from '@/components/Input/Input';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { Select } from '@/components/Select/Select';
+import { Textarea } from '@/components/Textarea/Textarea';
 import {
+  buildCloudSqlSnippet,
   createDatasource,
   testConnection,
   updateDatasource,
@@ -20,17 +24,36 @@ import { syncSchema } from '@/api/schema';
 import { useWorkspaceId } from '@/hooks/useWorkspaceId';
 import {
   isReadOnlyCanWriteProblem,
+  validateInstanceConnectionName,
   validatePort,
   validateRequired,
+  validateSaKeyJson,
 } from '../helpers/validation';
 import './ConnectDatasourcePage.css';
 
+type ConnectionMethod = 'DIRECT' | 'CLOUDSQL';
+type CloudSqlAuthType = 'IAM' | 'BUILT_IN';
+
+/**
+ * One flat bag of fields for both methods; the form runs with
+ * `shouldUnregister: true`, so only the mounted branch's fields validate and
+ * reach the submit handler. `database` and `cloudSqlDatabase` stay separate
+ * names on purpose — a shared name would be unmounted/remounted on a method
+ * switch and lose its value.
+ */
 type ConnectFormValues = {
   name: string;
+  // DIRECT
   host: string;
   port: string;
   database: string;
   sslMode: 'REQUIRE' | 'DISABLE';
+  caCert: string;
+  // CLOUDSQL
+  instanceConnectionName: string;
+  cloudSqlDatabase: string;
+  saKeyJson: string;
+  // Roles (both methods; passwords only rendered when the method has them)
   readOnlyUsername: string;
   readOnlyPassword: string;
   readWriteUsername: string;
@@ -42,6 +65,14 @@ type ConnectStage =
   | { step: 'testing' }
   | { step: 'failed'; problems: string[] }
   | { step: 'syncing' };
+
+/** Cloud SQL snippet fetch state — driven by opening the collapsed block. */
+type SnippetState =
+  | { status: 'idle' }
+  | { status: 'missing-input' }
+  | { status: 'loading' }
+  | { status: 'ready'; script: string }
+  | { status: 'error'; message: string };
 
 /* Least-privilege onboarding (transverse decision D11): we never ask for a
    superuser — the customer creates two scoped roles with this snippet. */
@@ -56,34 +87,84 @@ GRANT CONNECT ON DATABASE <database> TO rowhouse_rw;
 GRANT USAGE ON SCHEMA public TO rowhouse_rw;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rowhouse_rw;`;
 
+/** The snippet endpoint only accepts lowercase Postgres identifiers. */
+const POSTGRES_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/;
+
 /**
- * What the server currently holds for the registered datasource (passwords
- * are sealed server-side and never echoed back — only usernames are kept).
- * Retries diff the form against this snapshot to PATCH only what changed.
+ * What the server currently holds for the registered datasource. Secrets
+ * (role passwords, the service-account key) are sealed server-side and never
+ * echoed back — only usernames and non-secret settings are kept. Retries
+ * diff the form against this snapshot to PATCH only what changed.
  */
-type SavedDatasource = {
-  id: string;
-  name: string;
-  host: string;
-  port: number;
-  database: string;
-  sslMode: 'REQUIRE' | 'DISABLE';
-  readOnlyUsername: string;
-  readWriteUsername: string;
-};
+type SavedDatasource =
+  | {
+      id: string;
+      method: 'DIRECT';
+      name: string;
+      host: string;
+      port: number;
+      database: string;
+      sslMode: 'REQUIRE' | 'DISABLE';
+      /** Trimmed PEM, '' when no CA is stored. */
+      caCert: string;
+      readOnlyUsername: string;
+      readWriteUsername: string;
+    }
+  | {
+      id: string;
+      method: 'CLOUDSQL';
+      name: string;
+      instanceConnectionName: string;
+      database: string;
+      authType: CloudSqlAuthType;
+      readOnlyUsername: string;
+      readWriteUsername: string;
+    };
 
 const SSL_MODE_OPTIONS = [
-  { value: 'REQUIRE', label: 'Required (recommended)' },
+  // REQUIRE alone encrypts but does not verify the server's identity —
+  // pasting the CA below upgrades it to full chain verification.
+  { value: 'REQUIRE', label: 'Required — encrypted, CA not verified' },
   { value: 'DISABLE', label: 'Disabled — local databases only' },
 ];
 
-function toCreateInput(values: ConnectFormValues): CreateDatasourceInput {
+function toCreateInput(
+  method: ConnectionMethod,
+  authType: CloudSqlAuthType,
+  values: ConnectFormValues,
+): CreateDatasourceInput {
+  // The new UI always sends `method` explicitly, on both branches — DIRECT
+  // is only optional server-side for pre-D12 clients.
+  if (method === 'CLOUDSQL') {
+    // Under IAM auth the password properties are omitted entirely (the API
+    // rejects them): ephemeral tokens, no stored DB secret at all.
+    const withPassword = authType === 'BUILT_IN';
+    return {
+      method: 'CLOUDSQL',
+      name: values.name.trim(),
+      instanceConnectionName: values.instanceConnectionName.trim(),
+      database: values.cloudSqlDatabase.trim(),
+      authType,
+      saKeyJson: values.saKeyJson,
+      readOnly: {
+        username: values.readOnlyUsername.trim(),
+        ...(withPassword ? { password: values.readOnlyPassword } : {}),
+      },
+      readWrite: {
+        username: values.readWriteUsername.trim(),
+        ...(withPassword ? { password: values.readWritePassword } : {}),
+      },
+    };
+  }
+  const caCert = values.caCert.trim();
   return {
+    method: 'DIRECT',
     name: values.name.trim(),
     host: values.host.trim(),
     port: Number(values.port),
     database: values.database.trim(),
     sslMode: values.sslMode,
+    ...(caCert !== '' ? { caCert } : {}),
     readOnly: {
       username: values.readOnlyUsername.trim(),
       password: values.readOnlyPassword,
@@ -95,24 +176,44 @@ function toCreateInput(values: ConnectFormValues): CreateDatasourceInput {
   };
 }
 
-function toSavedDatasource(id: string, values: ConnectFormValues): SavedDatasource {
-  return {
+function toSavedDatasource(
+  id: string,
+  method: ConnectionMethod,
+  authType: CloudSqlAuthType,
+  values: ConnectFormValues,
+): SavedDatasource {
+  const common = {
     id,
     name: values.name.trim(),
+    readOnlyUsername: values.readOnlyUsername.trim(),
+    readWriteUsername: values.readWriteUsername.trim(),
+  };
+  if (method === 'CLOUDSQL') {
+    return {
+      ...common,
+      method: 'CLOUDSQL',
+      instanceConnectionName: values.instanceConnectionName.trim(),
+      database: values.cloudSqlDatabase.trim(),
+      authType,
+    };
+  }
+  return {
+    ...common,
+    method: 'DIRECT',
     host: values.host.trim(),
     port: Number(values.port),
     database: values.database.trim(),
     sslMode: values.sslMode,
-    readOnlyUsername: values.readOnlyUsername.trim(),
-    readWriteUsername: values.readWriteUsername.trim(),
+    caCert: values.caCert.trim(),
   };
 }
 
 /**
- * Only what differs from the saved snapshot goes into the PATCH. A blank
- * password means "keep the current sealed one", so a role is only included
- * when a new password was typed (a username change alone is blocked by
- * validation — re-sealing needs the password too).
+ * Only what differs from the saved snapshot goes into the PATCH. Write-only
+ * secrets follow blank-to-keep: a blank password (or a blank service-account
+ * key) means "keep the current sealed one", so they are only included when
+ * the user typed a replacement. The method itself is never in the PATCH —
+ * it cannot change (the picker is locked once registered).
  */
 function buildUpdatePatch(
   values: ConnectFormValues,
@@ -123,6 +224,51 @@ function buildUpdatePatch(
   if (name !== saved.name) {
     patch.name = name;
   }
+
+  if (saved.method === 'CLOUDSQL') {
+    const cloudSql: NonNullable<UpdateDatasourceInput['cloudSql']> = {};
+    const instanceConnectionName = values.instanceConnectionName.trim();
+    if (instanceConnectionName !== saved.instanceConnectionName) {
+      cloudSql.instanceConnectionName = instanceConnectionName;
+    }
+    const database = values.cloudSqlDatabase.trim();
+    if (database !== saved.database) {
+      cloudSql.database = database;
+    }
+    if (values.saKeyJson.trim() !== '') {
+      cloudSql.saKeyJson = values.saKeyJson;
+    }
+    if (Object.keys(cloudSql).length > 0) {
+      patch.cloudSql = cloudSql;
+    }
+    if (saved.authType === 'BUILT_IN') {
+      if (values.readOnlyPassword !== '') {
+        patch.readOnly = {
+          username: values.readOnlyUsername.trim(),
+          password: values.readOnlyPassword,
+        };
+      }
+      if (values.readWritePassword !== '') {
+        patch.readWrite = {
+          username: values.readWriteUsername.trim(),
+          password: values.readWritePassword,
+        };
+      }
+    } else {
+      // IAM: there is no password at all — a changed username simply
+      // re-targets the IAM database user.
+      const readOnlyUsername = values.readOnlyUsername.trim();
+      if (readOnlyUsername !== saved.readOnlyUsername) {
+        patch.readOnly = { username: readOnlyUsername };
+      }
+      const readWriteUsername = values.readWriteUsername.trim();
+      if (readWriteUsername !== saved.readWriteUsername) {
+        patch.readWrite = { username: readWriteUsername };
+      }
+    }
+    return patch;
+  }
+
   const host = values.host.trim();
   if (host !== saved.host) {
     patch.host = host;
@@ -137,6 +283,12 @@ function buildUpdatePatch(
   }
   if (values.sslMode !== saved.sslMode) {
     patch.sslMode = values.sslMode;
+  }
+  const caCert = values.caCert.trim();
+  if (caCert !== saved.caCert) {
+    // An emptied field removes the stored certificate (null), a new PEM
+    // replaces it — the CA is public-key material, not blank-to-keep.
+    patch.caCert = caCert === '' ? null : caCert;
   }
   if (values.readOnlyPassword !== '') {
     patch.readOnly = {
@@ -168,14 +320,26 @@ function ConnectDatasourcePage() {
   const [stage, setStage] = useState<ConnectStage>({ step: 'form' });
   const [saved, setSaved] = useState<SavedDatasource | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  // The picker and auth type live outside react-hook-form: they decide which
+  // branch of the form is mounted, and both lock once the datasource exists.
+  const [method, setMethod] = useState<ConnectionMethod>('DIRECT');
+  const [authType, setAuthType] = useState<CloudSqlAuthType>('IAM');
+  const [snippet, setSnippet] = useState<SnippetState>({ status: 'idle' });
 
   const form = useForm<ConnectFormValues>({
+    // Unmounted branch fields drop out of validation and submitted values —
+    // a Cloud SQL submit must not trip over hidden host/port validators.
+    shouldUnregister: true,
     defaultValues: {
       name: '',
       host: '',
       port: '5432',
       database: '',
       sslMode: 'REQUIRE',
+      caCert: '',
+      instanceConnectionName: '',
+      cloudSqlDatabase: '',
+      saKeyJson: '',
       readOnlyUsername: '',
       readOnlyPassword: '',
       readWriteUsername: '',
@@ -183,14 +347,22 @@ function ConnectDatasourcePage() {
     },
   });
 
-  // After a successful save the passwords are sealed server-side; the inputs
-  // go back to blank ("keep the current password") so a failed test never
-  // leaves secrets sitting in the DOM, and a retry only re-sends what the
-  // user re-typed.
+  const locked = saved !== null;
+  const hasPasswords = method === 'DIRECT' || authType === 'BUILT_IN';
+
+  // After a successful save the write-only secrets are sealed server-side;
+  // the inputs go back to blank ("keep the current one") so a failed test
+  // never leaves secrets sitting in the DOM, and a retry only re-sends what
+  // the user re-typed.
   const rememberSaved = (id: string, values: ConnectFormValues) => {
-    setSaved(toSavedDatasource(id, values));
-    form.resetField('readOnlyPassword');
-    form.resetField('readWritePassword');
+    setSaved(toSavedDatasource(id, method, authType, values));
+    if (hasPasswords) {
+      form.resetField('readOnlyPassword');
+      form.resetField('readWritePassword');
+    }
+    if (method === 'CLOUDSQL') {
+      form.resetField('saKeyJson');
+    }
   };
 
   const onSubmit = async (values: ConnectFormValues) => {
@@ -204,13 +376,13 @@ function ConnectDatasourcePage() {
         const created = await createDatasource(
           workspaceId,
           projectId,
-          toCreateInput(values),
+          toCreateInput(method, authType, values),
         );
         id = created.id;
         rememberSaved(id, values);
       } else {
         // Retry: PATCH the fields that changed since the last save (if any)
-        // so a wrong password is fixable in place, then re-run the test.
+        // so a wrong secret is fixable in place, then re-run the test.
         id = saved.id;
         const patch = buildUpdatePatch(values, saved);
         if (Object.keys(patch).length > 0) {
@@ -241,6 +413,37 @@ function ConnectDatasourcePage() {
     }
   };
 
+  // The gcloud script is generated from the typed instance + database, so it
+  // is fetched when the collapsed block opens (and refreshed on re-open).
+  const onSnippetToggle = (event: SyntheticEvent<HTMLDetailsElement>) => {
+    if (!event.currentTarget.open || workspaceId === null) {
+      return;
+    }
+    const instanceConnectionName = form
+      .getValues('instanceConnectionName')
+      .trim();
+    const database = form.getValues('cloudSqlDatabase').trim();
+    if (
+      validateInstanceConnectionName(instanceConnectionName) !== true ||
+      !POSTGRES_IDENTIFIER_PATTERN.test(database)
+    ) {
+      setSnippet({ status: 'missing-input' });
+      return;
+    }
+    setSnippet({ status: 'loading' });
+    buildCloudSqlSnippet(workspaceId, { instanceConnectionName, database })
+      .then((result) => setSnippet({ status: 'ready', script: result.script }))
+      .catch((error: unknown) =>
+        setSnippet({
+          status: 'error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not generate the script, please try again.',
+        }),
+      );
+  };
+
   const busy =
     form.formState.isSubmitting ||
     stage.step === 'testing' ||
@@ -250,11 +453,11 @@ function ConnectDatasourcePage() {
       ? 'Testing connection…'
       : stage.step === 'syncing'
         ? 'Connection OK — syncing schema…'
-        : saved !== null
+        : locked
           ? 'Retry connection test'
           : 'Connect & test';
 
-  // After registration, passwords are optional: blank keeps the sealed one.
+  // After registration, secrets are optional: blank keeps the sealed one.
   // But a username change forces a re-seal, which needs the password too.
   const validatePassword =
     (label: string, usernameField: 'readOnlyUsername' | 'readWriteUsername') =>
@@ -271,8 +474,37 @@ function ConnectDatasourcePage() {
       }
       return true;
     };
-  const passwordHint =
-    saved !== null ? 'Leave blank to keep the current password' : undefined;
+  const passwordHint = locked
+    ? 'Leave blank to keep the current password'
+    : undefined;
+
+  const methodCard = (
+    value: ConnectionMethod,
+    title: string,
+    description: string,
+    badge?: string,
+  ) => (
+    <Card
+      className={`connect-method${method === value ? ' connect-method--selected' : ''}`}
+    >
+      <label className="connect-method__option">
+        <input
+          className="connect-method__input"
+          type="radio"
+          name="connection-method"
+          value={value}
+          checked={method === value}
+          disabled={busy || locked}
+          onChange={() => setMethod(value)}
+        />
+        <span className="connect-method__content">
+          <span className="connect-method__name">{title}</span>
+          <span className="connect-method__description">{description}</span>
+          {badge && <Badge label={badge} variant="success" />}
+        </span>
+      </label>
+    </Card>
+  );
 
   return (
     <div className="connect-page">
@@ -283,12 +515,58 @@ function ConnectDatasourcePage() {
           used behind approvals."
       />
 
-      <details className="connect-page__sql">
-        <summary className="connect-page__sql-summary">
-          Need to create the roles? Run this snippet on your database first.
-        </summary>
-        <CodeBlock code={ROLE_SQL_SNIPPET} label="SQL" />
-      </details>
+      <div
+        className="connect-page__methods"
+        role="radiogroup"
+        aria-label="Connection method"
+      >
+        {methodCard(
+          'DIRECT',
+          'Direct connection',
+          'Reach the database on its host and port, TLS encrypted — any managed or self-hosted Postgres.',
+        )}
+        {methodCard(
+          'CLOUDSQL',
+          'Google Cloud SQL',
+          'Through the Cloud SQL connector, with IAM database authentication.',
+          'No stored password',
+        )}
+      </div>
+      {locked && (
+        <p className="connect-page__hint">
+          The connection method is fixed after creation — connect a new
+          datasource to use a different one.
+        </p>
+      )}
+
+      {method === 'DIRECT' ? (
+        <details className="connect-page__sql">
+          <summary className="connect-page__sql-summary">
+            Need to create the roles? Run this snippet on your database first.
+          </summary>
+          <CodeBlock code={ROLE_SQL_SNIPPET} label="SQL" />
+        </details>
+      ) : (
+        <details className="connect-page__sql" onToggle={onSnippetToggle}>
+          <summary className="connect-page__sql-summary">
+            Need to set up the service accounts? Generate the gcloud + SQL
+            script.
+          </summary>
+          {snippet.status === 'missing-input' && (
+            <p className="connect-page__hint">
+              Fill in a valid instance connection name and database below
+              first — the script is generated from them.
+            </p>
+          )}
+          {snippet.status === 'loading' && (
+            <p className="connect-page__hint">Generating the script…</p>
+          )}
+          {snippet.status === 'error' && <FormError message={snippet.message} />}
+          {snippet.status === 'ready' && (
+            <CodeBlock code={snippet.script} label="gcloud + SQL" />
+          )}
+        </details>
+      )}
 
       {stage.step === 'syncing' && (
         <Callout variant="success" title="Connection OK.">
@@ -336,53 +614,155 @@ function ConnectDatasourcePage() {
 
         {/* Fields lock only while a request is in flight; after a failed test
             everything stays editable so the user can fix and retry. */}
-        <fieldset className="connect-page__fieldset" disabled={busy}>
-          <legend className="connect-page__legend">Database</legend>
-          <Input
-            label="Name"
-            type="text"
-            placeholder="Production"
-            error={form.formState.errors.name?.message}
-            {...form.register('name', { validate: validateRequired('Name') })}
-          />
-          <div className="connect-page__row">
+        {method === 'DIRECT' ? (
+          <fieldset className="connect-page__fieldset" disabled={busy}>
+            <legend className="connect-page__legend">Database</legend>
             <Input
-              label="Host"
+              label="Name"
               type="text"
-              placeholder="db.example.com"
-              error={form.formState.errors.host?.message}
-              {...form.register('host', { validate: validateRequired('Host') })}
+              placeholder="Production"
+              error={form.formState.errors.name?.message}
+              {...form.register('name', { validate: validateRequired('Name') })}
+            />
+            <div className="connect-page__row">
+              <Input
+                label="Host"
+                type="text"
+                placeholder="db.example.com"
+                error={form.formState.errors.host?.message}
+                {...form.register('host', {
+                  validate: validateRequired('Host'),
+                })}
+              />
+              <Input
+                label="Port"
+                type="number"
+                inputMode="numeric"
+                error={form.formState.errors.port?.message}
+                {...form.register('port', { validate: validatePort })}
+              />
+            </div>
+            <Input
+              label="Database"
+              type="text"
+              placeholder="app_production"
+              error={form.formState.errors.database?.message}
+              {...form.register('database', {
+                validate: validateRequired('Database'),
+              })}
+            />
+            <Controller
+              control={form.control}
+              name="sslMode"
+              render={({ field }) => (
+                <Select
+                  label="TLS (SSL mode)"
+                  options={SSL_MODE_OPTIONS}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                />
+              )}
+            />
+            <Textarea
+              label="CA certificate (optional)"
+              rows={5}
+              placeholder="-----BEGIN CERTIFICATE-----"
+              hint="Paste the server CA PEM to enable full TLS verification (verify-full)."
+              error={form.formState.errors.caCert?.message}
+              {...form.register('caCert', {
+                validate: (value: string) =>
+                  value.trim() === '' ||
+                  value.includes('-----BEGIN CERTIFICATE-----') ||
+                  'Must be a PEM-encoded certificate',
+              })}
+            />
+          </fieldset>
+        ) : (
+          <fieldset className="connect-page__fieldset" disabled={busy}>
+            <legend className="connect-page__legend">Cloud SQL instance</legend>
+            <Input
+              label="Name"
+              type="text"
+              placeholder="Production"
+              error={form.formState.errors.name?.message}
+              {...form.register('name', { validate: validateRequired('Name') })}
             />
             <Input
-              label="Port"
-              type="number"
-              inputMode="numeric"
-              error={form.formState.errors.port?.message}
-              {...form.register('port', { validate: validatePort })}
+              label="Instance connection name"
+              type="text"
+              placeholder="project:region:instance"
+              error={form.formState.errors.instanceConnectionName?.message}
+              {...form.register('instanceConnectionName', {
+                validate: validateInstanceConnectionName,
+              })}
             />
-          </div>
-          <Input
-            label="Database"
-            type="text"
-            placeholder="app_production"
-            error={form.formState.errors.database?.message}
-            {...form.register('database', {
-              validate: validateRequired('Database'),
-            })}
-          />
-          <Controller
-            control={form.control}
-            name="sslMode"
-            render={({ field }) => (
-              <Select
-                label="TLS (SSL mode)"
-                options={SSL_MODE_OPTIONS}
-                value={field.value}
-                onValueChange={field.onChange}
-              />
-            )}
-          />
-        </fieldset>
+            <Input
+              label="Database"
+              type="text"
+              placeholder="app_production"
+              error={form.formState.errors.cloudSqlDatabase?.message}
+              {...form.register('cloudSqlDatabase', {
+                validate: validateRequired('Database'),
+              })}
+            />
+            <div
+              className="connect-page__radio-group"
+              role="radiogroup"
+              aria-label="Database authentication"
+            >
+              <span className="connect-page__radio-group-label">
+                Database authentication
+              </span>
+              <label className="connect-page__radio">
+                <input
+                  type="radio"
+                  name="cloud-sql-auth-type"
+                  value="IAM"
+                  checked={authType === 'IAM'}
+                  disabled={busy || locked}
+                  onChange={() => setAuthType('IAM')}
+                />
+                <span>IAM (recommended) — ephemeral tokens, no password</span>
+              </label>
+              <label className="connect-page__radio">
+                <input
+                  type="radio"
+                  name="cloud-sql-auth-type"
+                  value="BUILT_IN"
+                  checked={authType === 'BUILT_IN'}
+                  disabled={busy || locked}
+                  onChange={() => setAuthType('BUILT_IN')}
+                />
+                <span>Built-in password</span>
+              </label>
+              {locked && (
+                <p className="connect-page__hint">
+                  The auth type is fixed after creation — connect a new
+                  datasource to switch.
+                </p>
+              )}
+            </div>
+            <Textarea
+              label="Service account key JSON"
+              rows={6}
+              autoComplete="off"
+              placeholder={
+                locked
+                  ? 'Paste a new key to replace'
+                  : '{ "type": "service_account", … }'
+              }
+              hint={
+                locked
+                  ? 'Service account key stored — sealed. Leave blank to keep it.'
+                  : 'Sealed on save — never displayed or returned again.'
+              }
+              error={form.formState.errors.saKeyJson?.message}
+              {...form.register('saKeyJson', {
+                validate: validateSaKeyJson(saved === null),
+              })}
+            />
+          </fieldset>
+        )}
 
         <div className="connect-page__roles">
           <fieldset className="connect-page__fieldset" disabled={busy}>
@@ -393,26 +773,34 @@ function ConnectDatasourcePage() {
             <Input
               label="Read-only username"
               type="text"
-              placeholder="rowhouse_ro"
+              placeholder={
+                method === 'CLOUDSQL' ? 'rowhouse-ro@project.iam' : 'rowhouse_ro'
+              }
               autoComplete="off"
               error={form.formState.errors.readOnlyUsername?.message}
               {...form.register('readOnlyUsername', {
                 validate: validateRequired('Read-only username'),
               })}
             />
-            <Input
-              label="Read-only password"
-              type="password"
-              autoComplete="new-password"
-              placeholder={passwordHint}
-              error={form.formState.errors.readOnlyPassword?.message}
-              {...form.register('readOnlyPassword', {
-                validate: validatePassword(
-                  'Read-only password',
-                  'readOnlyUsername',
-                ),
-              })}
-            />
+            {hasPasswords ? (
+              <Input
+                label="Read-only password"
+                type="password"
+                autoComplete="new-password"
+                placeholder={passwordHint}
+                error={form.formState.errors.readOnlyPassword?.message}
+                {...form.register('readOnlyPassword', {
+                  validate: validatePassword(
+                    'Read-only password',
+                    'readOnlyUsername',
+                  ),
+                })}
+              />
+            ) : (
+              <p className="connect-page__hint">
+                IAM auth — no password: tokens are minted per connection.
+              </p>
+            )}
           </fieldset>
 
           <fieldset className="connect-page__fieldset" disabled={busy}>
@@ -423,26 +811,34 @@ function ConnectDatasourcePage() {
             <Input
               label="Read-write username"
               type="text"
-              placeholder="rowhouse_rw"
+              placeholder={
+                method === 'CLOUDSQL' ? 'rowhouse-rw@project.iam' : 'rowhouse_rw'
+              }
               autoComplete="off"
               error={form.formState.errors.readWriteUsername?.message}
               {...form.register('readWriteUsername', {
                 validate: validateRequired('Read-write username'),
               })}
             />
-            <Input
-              label="Read-write password"
-              type="password"
-              autoComplete="new-password"
-              placeholder={passwordHint}
-              error={form.formState.errors.readWritePassword?.message}
-              {...form.register('readWritePassword', {
-                validate: validatePassword(
-                  'Read-write password',
-                  'readWriteUsername',
-                ),
-              })}
-            />
+            {hasPasswords ? (
+              <Input
+                label="Read-write password"
+                type="password"
+                autoComplete="new-password"
+                placeholder={passwordHint}
+                error={form.formState.errors.readWritePassword?.message}
+                {...form.register('readWritePassword', {
+                  validate: validatePassword(
+                    'Read-write password',
+                    'readWriteUsername',
+                  ),
+                })}
+              />
+            ) : (
+              <p className="connect-page__hint">
+                IAM auth — no password: tokens are minted per connection.
+              </p>
+            )}
           </fieldset>
         </div>
 

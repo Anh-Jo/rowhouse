@@ -6,6 +6,80 @@
   gap: var(--space-6);
 }
 
+/* Method picker: two selectable cards. The whole card is the radio's label,
+   so the click target is the full surface, not just the small input. */
+.connect-page__methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.connect-method .card__body {
+  padding: 0;
+}
+
+.connect-method--selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.connect-method__option {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  cursor: pointer;
+}
+
+.connect-method__option:has(.connect-method__input:disabled) {
+  cursor: default;
+}
+
+.connect-method__input {
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+}
+
+.connect-method__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.connect-method__name {
+  font-weight: var(--font-weight-semibold);
+}
+
+.connect-method__description {
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+}
+
+/* Cloud SQL auth-type radios — plain stacked radios inside the fieldset. */
+.connect-page__radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.connect-page__radio-group-label {
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+}
+
+.connect-page__radio {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: var(--font-size-13);
+  cursor: pointer;
+}
+
+.connect-page__radio input {
+  accent-color: var(--color-accent);
+}
+
 /* Role-creation snippet: collapsed by default — helpful, never in the way. */
 .connect-page__sql {
   display: flex;
@@ -107,9 +181,11 @@
   font-size: var(--font-size-13);
 }
 
-/* Mobile (< 768px): stack the role fieldsets, keep host/port side by side. */
+/* Mobile (< 768px): stack the role fieldsets and the method cards, keep
+   host/port side by side. */
 @media (max-width: 767px) {
-  .connect-page__roles {
+  .connect-page__roles,
+  .connect-page__methods {
     grid-template-columns: 1fr;
   }
 }

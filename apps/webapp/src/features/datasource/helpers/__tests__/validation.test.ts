@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   isReadOnlyCanWriteProblem,
+  validateInstanceConnectionName,
   validatePort,
   validateRequired,
+  validateSaKeyJson,
 } from '../validation';
 
 describe('validateRequired', () => {
@@ -46,6 +48,51 @@ describe('validatePort', () => {
 
   it('accepts a valid port', () => {
     expect(validatePort('5432')).toBe(true);
+  });
+});
+
+describe('validateInstanceConnectionName', () => {
+  it('rejects an empty value', () => {
+    expect(validateInstanceConnectionName('')).toBe(
+      'Instance connection name is required',
+    );
+  });
+
+  it('rejects anything that is not project:region:instance', () => {
+    for (const value of [
+      'my-project',
+      'my-project:europe-west1',
+      'my-project:europe-west1:db:extra',
+      'My-Project:europe-west1:db',
+      '1project:europe-west1:db',
+    ]) {
+      expect(validateInstanceConnectionName(value)).toBe(
+        'Must be "project:region:instance" — the Cloud SQL instance connection name',
+      );
+    }
+  });
+
+  it('accepts a valid instance connection name (trimmed)', () => {
+    expect(
+      validateInstanceConnectionName(' my-project:europe-west1:prod-db '),
+    ).toBe(true);
+  });
+});
+
+describe('validateSaKeyJson', () => {
+  it('requires the key on first save only — blank means keep afterwards', () => {
+    expect(validateSaKeyJson(true)('')).toBe('Service account key is required');
+    expect(validateSaKeyJson(false)('')).toBe(true);
+  });
+
+  it('rejects content that is not JSON', () => {
+    expect(validateSaKeyJson(true)('not-json')).toBe(
+      'Must be the JSON content of a service-account key file',
+    );
+  });
+
+  it('accepts a JSON key', () => {
+    expect(validateSaKeyJson(true)('{"type":"service_account"}')).toBe(true);
   });
 });
 
