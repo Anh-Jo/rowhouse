@@ -8,7 +8,10 @@ jest.mock('better-auth/node', () => ({
   fromNodeHeaders: (headers: unknown) => headers,
 }));
 // Pulled in transitively via auth.instance.ts → auth-options.ts.
-jest.mock('better-auth/plugins', () => ({ emailOTP: jest.fn() }));
+jest.mock('better-auth/plugins', () => ({
+  emailOTP: jest.fn(),
+  organization: jest.fn(),
+}));
 
 import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';

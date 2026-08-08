@@ -1,5 +1,5 @@
 import type { BetterAuthOptions } from 'better-auth';
-import { emailOTP } from 'better-auth/plugins';
+import { emailOTP, organization } from 'better-auth/plugins';
 import type { BuildAuthOptionsParams } from './auth.d.ts';
 
 /** OTP configuration for the email-based password reset flow. */
@@ -97,6 +97,11 @@ export function buildAuthOptions(
       },
     },
     plugins: [
+      // Workspaces are better-auth organizations (transverse decision D9):
+      // membership, roles and invitations come from the plugin, never rebuilt.
+      // Invitation emails ship with the collaboration UI (phase 2) — until
+      // then invitations only flow through the API surface.
+      organization(),
       emailOTP({
         otpLength: OTP_LENGTH,
         expiresIn: OTP_TTL_SECONDS,

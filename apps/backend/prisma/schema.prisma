@@ -20,10 +20,18 @@ model User {
   updatedAt   DateTime @updatedAt
 }
 
-// TODO: Add your other models here, e.g.:
-// model Post {
-//   id        String   @id @default(cuid())
-//   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-//   authorId  String
-//   createdAt DateTime @default(now())
-// }
+/// Groups datasources inside a workspace (one product or one environment).
+/// `workspaceId` is the better-auth organization id — it lives in the auth
+/// database, so no FK can exist across the two databases: membership is
+/// enforced by the workspace guard, and cleanup on workspace deletion is an
+/// application concern (auth hooks), not a cascade.
+model Project {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
