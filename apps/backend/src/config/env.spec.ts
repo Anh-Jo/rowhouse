@@ -6,6 +6,8 @@ const BASE_ENV = {
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   BETTER_AUTH_URL: 'http://localhost:3000',
   FRONTEND_URL: 'http://localhost:5173',
+  // 32 zero bytes, base64 — deterministic and obviously not a real key.
+  CREDENTIALS_KEK: Buffer.alloc(32).toString('base64'),
 };
 
 describe('EnvStore', () => {
