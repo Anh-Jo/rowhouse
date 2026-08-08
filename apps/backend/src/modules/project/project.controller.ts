@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiParam } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { CurrentWorkspace } from '@/auth/decorators';
 import { WorkspaceMemberGuard } from '@/auth/workspace.guard';
@@ -26,6 +27,7 @@ import { ProjectService } from './project.service';
  * workspace id, never by a client-supplied value.
  */
 @Controller('workspaces/:workspaceId/projects')
+@ApiParam({ name: 'workspaceId', type: 'string' })
 @UseGuards(WorkspaceMemberGuard)
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
