@@ -87,6 +87,22 @@ already written.
     customer runs to create `rowhouse_ro` / `rowhouse_rw` roles with minimal
     grants. TLS is required by default on target connections.
 
+12. **Connection methods are per-typology tables behind the factory.** How a
+    target database is reached (direct TCP, Cloud SQL connector, SSH
+    tunnel, …) is a `connectionMethod` discriminator on `Datasource` with
+    **one dedicated table per method** (`DirectConnection`,
+    `CloudSqlConnection`, `SshTunnelConnection`, …) — typed columns and a
+    migration per method, never a shared table of nullable columns or a
+    JSON blob. Method secrets use the same sealed triplet
+    (`*Sealed`/`*DekWrapped`/`*DekKeyId`) as credentials, so KEK rotation
+    stays one mechanical rewrap. Role credentials (D2) stay orthogonal:
+    method tables carry the transport, `DatasourceCredential` carries the
+    per-role identity — under IAM auth the role secret is empty (ephemeral
+    tokens) but the ro/rw duality and the guardrail probe are unchanged.
+    "Exactly one method row, matching the discriminator" is a service-level
+    invariant pinned by tests. Every method resolves inside
+    `TargetConnectionFactory`; none bypasses the probe or the audit.
+
 ## Data model (shared by all phases)
 
 - `User`, sessions, `Workspace` (= Better Auth organization),
