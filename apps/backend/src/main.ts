@@ -29,7 +29,7 @@ async function bootstrap() {
     // `trustProxy` (enabled in prod behind the reverse proxy) makes `req.ip`
     // resolve from `X-Forwarded-For`, so the rate limit keys on the real
     // client IP instead of the proxy socket.
-    new FastifyAdapter({ trustProxy: env.get('TRUST_PROXY') }),
+    new FastifyAdapter(),
     { bufferLogs: true },
   );
   app.useLogger(app.get(Logger));
@@ -60,9 +60,15 @@ async function bootstrap() {
     },
   });
 
+  // `methods` is explicit on purpose: @fastify/cors defaults to GET,HEAD,POST
+  // only (the CORS "simple methods"), unlike Express whose enableCors default
+  // includes PUT/PATCH/DELETE. Without this, every cross-origin PATCH (schema
+  // metadata, PII flag, datasource edit) fails the preflight — the browser
+  // sees "CORS error / failed to fetch" even though the route exists.
   app.enableCors({
     origin: env.get('FRONTEND_URL'),
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // Contracts for codegen are exported by scripts/generate-contracts.ts, not
