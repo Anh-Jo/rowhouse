@@ -21,10 +21,17 @@ function buildEngine(overrides?: {
     (overrides?.datasourceFound ?? true)
       ? {
           id: 'ds-1',
-          host: 'db.internal',
-          port: 5432,
-          database: 'app',
-          sslMode: 'REQUIRE',
+          connectionMethod: 'DIRECT',
+          direct: {
+            id: 'dc-1',
+            datasourceId: 'ds-1',
+            host: 'db.internal',
+            port: 5432,
+            database: 'app',
+            sslMode: 'REQUIRE',
+            caCert: null,
+          },
+          cloudSql: null,
           credentials: [
             {
               role: 'READ_ONLY',
@@ -88,11 +95,19 @@ describe('QueryEngine', () => {
           id: 'ds-1',
           project: { workspaceId: 'ws-1' },
         },
-        include: { credentials: { where: { role: 'READ_ONLY' } } },
+        include: {
+          credentials: { where: { role: 'READ_ONLY' } },
+          direct: true,
+          cloudSql: true,
+        },
       }),
     );
+    // The connect input went through the method resolver (decision D12).
     expect(connect).toHaveBeenCalledWith(
       expect.objectContaining({
+        method: 'DIRECT',
+        host: 'db.internal',
+        ssl: 'REQUIRE',
         user: 'rowhouse_ro',
         password: 'plaintext-pw',
       }),

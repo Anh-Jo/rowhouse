@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { TabFilter } from '@/components/TabFilter/TabFilter';
 import { getDatasource } from '@/api/datasources';
 import { datasourceKeys, schemaKeys } from '@/api/query-keys';
+import { formatDatasourceMethod } from '@/helpers/datasource-method';
 import {
   getDatasourceSchema,
   syncSchema,
@@ -98,7 +99,23 @@ function SchemaBrowserPage() {
   return (
     <div className="schema-browser">
       <PageHeader
-        title={datasourceQuery.data?.name ?? 'Schema'}
+        title={
+          datasourceQuery.data ? (
+            <span className="schema-browser__title">
+              {datasourceQuery.data.name}
+              {/* How this datasource is reached — Direct vs Cloud SQL (IAM
+                  called out: zero stored password). */}
+              {datasourceQuery.data.method && (
+                <Badge
+                  label={formatDatasourceMethod(datasourceQuery.data)}
+                  variant="info"
+                />
+              )}
+            </span>
+          ) : (
+            'Schema'
+          )
+        }
         subtitle={
           schema.syncedAt
             ? `Last synced ${new Date(schema.syncedAt).toLocaleString()}`

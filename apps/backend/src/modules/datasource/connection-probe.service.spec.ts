@@ -5,12 +5,13 @@ import type {
 } from '@/target-db/target-connection.factory';
 
 const PARAMS = {
+  method: 'DIRECT' as const,
   host: 'db.example.com',
   port: 5432,
   database: 'app',
   user: 'rowhouse_ro',
   password: 'pw',
-  ssl: true,
+  ssl: 'REQUIRE' as const,
 };
 
 function fakeFactory(behavior: {

@@ -13,9 +13,12 @@ import {
 } from '@/helpers/pagination';
 import { isPrismaError } from '@/helpers/prisma-errors';
 import type {
+  CloudSqlConnection,
   CredentialRole,
   Datasource,
   DatasourceCredential,
+  DirectConnection,
+  Prisma,
 } from '../../generated/prisma/client';
 import type {
   CreateDatasourceDto,
@@ -23,11 +26,24 @@ import type {
 } from './datasource.dto';
 import { ConnectionProbe } from './connection-probe.service';
 import { CredentialVault } from '@/target-db/vault/credential-vault.service';
+import { resolveConnectionConfig } from '@/target-db/resolve-connection-config';
 
-/** A datasource joined with its credential rows (secrets stay sealed). */
+/**
+ * A datasource joined with its credential rows and its method row (decision
+ * D12) — secrets stay sealed.
+ */
 export type DatasourceWithCredentials = Datasource & {
   credentials: DatasourceCredential[];
+  direct: DirectConnection | null;
+  cloudSql: CloudSqlConnection | null;
 };
+
+/** Every read of a datasource joins the same relations. */
+const DATASOURCE_INCLUDE = {
+  credentials: true,
+  direct: true,
+  cloudSql: true,
+} as const;
 
 @Injectable()
 export class DatasourceService {
@@ -55,6 +71,29 @@ export class DatasourceService {
     }
   }
 
+  /**
+   * Seals a secret and converts to `Uint8Array` copies, which satisfy Prisma
+   * 7's `Bytes` typing (`Uint8Array<ArrayBuffer>`) where Node's Buffer does
+   * not. No plaintext lives longer than the caller's stack frame.
+   */
+  private async sealToBytes(plaintext: string): Promise<{
+    secretSealed: Uint8Array<ArrayBuffer>;
+    dekWrapped: Uint8Array<ArrayBuffer>;
+    dekKeyId: string;
+  }> {
+    const sealed = await this.vault.sealSecret(plaintext);
+    return {
+      secretSealed: new Uint8Array(sealed.secretSealed),
+      dekWrapped: new Uint8Array(sealed.dekWrapped),
+      dekKeyId: sealed.dekKeyId,
+    };
+  }
+
+  /**
+   * The discriminator and its method row are written in ONE nested create —
+   * a single transaction, so the D12 invariant ("exactly one method row,
+   * matching the discriminator") can never be observed half-applied.
+   */
   async create(
     workspaceId: string,
     projectId: string,
@@ -62,45 +101,71 @@ export class DatasourceService {
   ): Promise<DatasourceWithCredentials> {
     await this.assertProjectInWorkspace(workspaceId, projectId);
 
-    // Seal both secrets before the transaction so no plaintext lives longer
-    // than this method's stack frame. `Uint8Array` copies satisfy Prisma 7's
-    // `Bytes` typing (`Uint8Array<ArrayBuffer>`), which Node's Buffer does not.
-    const [readOnlySealed, readWriteSealed] = (
-      await Promise.all([
-        this.vault.sealSecret(input.readOnly.password),
-        this.vault.sealSecret(input.readWrite.password),
-      ])
-    ).map((sealed) => ({
-      secretSealed: new Uint8Array(sealed.secretSealed),
-      dekWrapped: new Uint8Array(sealed.dekWrapped),
-      dekKeyId: sealed.dekKeyId,
-    }));
+    // Under Cloud SQL IAM auth roles hold no password (ephemeral tokens,
+    // decision D12) — an empty secret is sealed so the ro/rw duality and the
+    // sealed-triplet shape stay uniform across methods.
+    const [readOnlySealed, readWriteSealed] = await Promise.all([
+      this.sealToBytes(input.readOnly.password ?? ''),
+      this.sealToBytes(input.readWrite.password ?? ''),
+    ]);
+    const credentials = {
+      create: [
+        {
+          role: 'READ_ONLY' as const,
+          username: input.readOnly.username,
+          ...readOnlySealed,
+        },
+        {
+          role: 'READ_WRITE' as const,
+          username: input.readWrite.username,
+          ...readWriteSealed,
+        },
+      ],
+    };
+
+    let methodData: Pick<
+      Prisma.DatasourceUncheckedCreateInput,
+      'connectionMethod' | 'direct' | 'cloudSql'
+    >;
+    if (input.method === 'CLOUDSQL') {
+      const saKey = await this.sealToBytes(input.saKeyJson);
+      methodData = {
+        connectionMethod: 'CLOUDSQL',
+        cloudSql: {
+          create: {
+            instanceConnectionName: input.instanceConnectionName,
+            database: input.database,
+            authType: input.authType,
+            saKeySealed: saKey.secretSealed,
+            saKeyDekWrapped: saKey.dekWrapped,
+            saKeyDekKeyId: saKey.dekKeyId,
+          },
+        },
+      };
+    } else {
+      methodData = {
+        connectionMethod: 'DIRECT',
+        direct: {
+          create: {
+            host: input.host,
+            port: input.port,
+            database: input.database,
+            sslMode: input.sslMode,
+            caCert: input.caCert ?? null,
+          },
+        },
+      };
+    }
 
     try {
       return await this.prisma.client.datasource.create({
         data: {
           projectId,
           name: input.name,
-          host: input.host,
-          port: input.port,
-          database: input.database,
-          sslMode: input.sslMode,
-          credentials: {
-            create: [
-              {
-                role: 'READ_ONLY',
-                username: input.readOnly.username,
-                ...readOnlySealed,
-              },
-              {
-                role: 'READ_WRITE',
-                username: input.readWrite.username,
-                ...readWriteSealed,
-              },
-            ],
-          },
+          ...methodData,
+          credentials,
         },
-        include: { credentials: true },
+        include: DATASOURCE_INCLUDE,
       });
     } catch (error) {
       if (isPrismaError(error, 'P2002')) {
@@ -116,7 +181,9 @@ export class DatasourceService {
    * Partial update — the "fix your typo" path the connect flow needs: a wrong
    * password or host must never be a dead end (standing order: security with
    * fluidity). Provided credentials are re-sealed under a fresh DEK; omitted
-   * ones are left untouched.
+   * ones are left untouched. Method rules are enforced against the STORED
+   * datasource: fields of the other method 400, and the method itself is
+   * fixed in P1.5.
    */
   async update(
     workspaceId: string,
@@ -125,41 +192,93 @@ export class DatasourceService {
     input: UpdateDatasourceDto,
   ): Promise<DatasourceWithCredentials> {
     // Reuses the scoped lookup: foreign ids 404 before anything happens.
-    await this.get(workspaceId, projectId, datasourceId);
+    const existing = await this.get(workspaceId, projectId, datasourceId);
 
-    const connectionData = {
-      ...(input.name !== undefined ? { name: input.name } : {}),
+    if (
+      input.method !== undefined &&
+      input.method !== existing.connectionMethod
+    ) {
+      throw new BadRequestException(
+        'The connection method cannot change — create a new datasource to change the connection method',
+      );
+    }
+    const directData = {
       ...(input.host !== undefined ? { host: input.host } : {}),
       ...(input.port !== undefined ? { port: input.port } : {}),
       ...(input.database !== undefined ? { database: input.database } : {}),
       ...(input.sslMode !== undefined ? { sslMode: input.sslMode } : {}),
+      ...(input.caCert !== undefined ? { caCert: input.caCert } : {}),
     };
+    if (
+      existing.connectionMethod !== 'DIRECT' &&
+      Object.keys(directData).length > 0
+    ) {
+      throw new BadRequestException(
+        'host, port, database, sslMode and caCert only apply to the DIRECT connection method',
+      );
+    }
+    if (existing.connectionMethod !== 'CLOUDSQL' && input.cloudSql) {
+      throw new BadRequestException(
+        'cloudSql settings only apply to the CLOUDSQL connection method',
+      );
+    }
 
+    // Credential passwords follow the stored method: required everywhere
+    // except under Cloud SQL IAM auth, where holding one is the mistake.
+    const iamAuth =
+      existing.connectionMethod === 'CLOUDSQL' &&
+      existing.cloudSql?.authType === 'IAM';
     const roleUpdates = [
-      { role: 'READ_ONLY' as const, credentials: input.readOnly },
-      { role: 'READ_WRITE' as const, credentials: input.readWrite },
+      { role: 'READ_ONLY' as CredentialRole, credentials: input.readOnly },
+      { role: 'READ_WRITE' as CredentialRole, credentials: input.readWrite },
     ].filter(
       (
         entry,
       ): entry is {
         role: CredentialRole;
-        credentials: { username: string; password: string };
+        credentials: { username: string; password?: string };
       } => entry.credentials !== undefined,
     );
+    for (const entry of roleUpdates) {
+      const hasPassword = entry.credentials.password !== undefined;
+      if (!iamAuth && !hasPassword) {
+        throw new BadRequestException(
+          `${entry.role}: a password is required to update this role's credentials`,
+        );
+      }
+      if (iamAuth && hasPassword) {
+        throw new BadRequestException(
+          `${entry.role}: IAM auth uses ephemeral tokens — database users hold no password`,
+        );
+      }
+    }
     const sealedUpdates = await Promise.all(
-      roleUpdates.map(async (entry) => {
-        const sealed = await this.vault.sealSecret(entry.credentials.password);
-        return {
-          role: entry.role,
-          username: entry.credentials.username,
-          secretSealed: new Uint8Array(sealed.secretSealed),
-          dekWrapped: new Uint8Array(sealed.dekWrapped),
-          dekKeyId: sealed.dekKeyId,
-        };
-      }),
+      roleUpdates.map(async (entry) => ({
+        role: entry.role,
+        username: entry.credentials.username,
+        ...(await this.sealToBytes(entry.credentials.password ?? '')),
+      })),
     );
 
+    const cloudSqlData = {
+      ...(input.cloudSql?.instanceConnectionName !== undefined
+        ? { instanceConnectionName: input.cloudSql.instanceConnectionName }
+        : {}),
+      ...(input.cloudSql?.database !== undefined
+        ? { database: input.cloudSql.database }
+        : {}),
+      ...(input.cloudSql?.saKeyJson !== undefined
+        ? await this.sealToBytes(input.cloudSql.saKeyJson).then((sealed) => ({
+            saKeySealed: sealed.secretSealed,
+            saKeyDekWrapped: sealed.dekWrapped,
+            saKeyDekKeyId: sealed.dekKeyId,
+          }))
+        : {}),
+    };
+
     try {
+      // One transaction for the whole update: the discriminator, its method
+      // row and the credentials can never drift apart (D12 invariant).
       return await this.prisma.client.$transaction(async (tx) => {
         for (const update of sealedUpdates) {
           const { role, ...data } = update;
@@ -170,10 +289,22 @@ export class DatasourceService {
             data,
           });
         }
+        if (Object.keys(directData).length > 0) {
+          await tx.directConnection.update({
+            where: { datasourceId },
+            data: directData,
+          });
+        }
+        if (Object.keys(cloudSqlData).length > 0) {
+          await tx.cloudSqlConnection.update({
+            where: { datasourceId },
+            data: cloudSqlData,
+          });
+        }
         return tx.datasource.update({
           where: { id: datasourceId },
-          data: connectionData,
-          include: { credentials: true },
+          data: input.name !== undefined ? { name: input.name } : {},
+          include: DATASOURCE_INCLUDE,
         });
       });
     } catch (error) {
@@ -195,7 +326,7 @@ export class DatasourceService {
     const limit = clampLimit(query.limit);
     const rows = await this.prisma.client.datasource.findMany({
       where: { projectId },
-      include: { credentials: true },
+      include: DATASOURCE_INCLUDE,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
@@ -211,7 +342,7 @@ export class DatasourceService {
     await this.assertProjectInWorkspace(workspaceId, projectId);
     const datasource = await this.prisma.client.datasource.findFirst({
       where: { id: datasourceId, projectId },
-      include: { credentials: true },
+      include: DATASOURCE_INCLUDE,
     });
     if (!datasource) {
       throw new NotFoundException('Datasource not found');
@@ -222,7 +353,8 @@ export class DatasourceService {
   /**
    * Opens both roles against the live database and enforces the guardrail:
    * the read-only role must hold no write capability (decisions D2/D11).
-   * Secrets are unsealed just-in-time, used for the probe, and dropped.
+   * Secrets are unsealed just-in-time by the connection resolver, used for
+   * the probe, and dropped.
    */
   async testConnection(
     workspaceId: string,
@@ -241,20 +373,8 @@ export class DatasourceService {
         throw new BadRequestException(`Missing ${role} credential`);
       }
       const startedAt = Date.now();
-      const password = await this.vault.openSecret({
-        secretSealed: Buffer.from(credential.secretSealed),
-        dekWrapped: Buffer.from(credential.dekWrapped),
-        dekKeyId: credential.dekKeyId,
-      });
       const result = await this.probe.probe(
-        {
-          host: datasource.host,
-          port: datasource.port,
-          database: datasource.database,
-          user: credential.username,
-          password,
-          ssl: datasource.sslMode === 'REQUIRE',
-        },
+        await resolveConnectionConfig(datasource, credential, this.vault),
         { checkWriteCapability: role === 'READ_ONLY' },
       );
 

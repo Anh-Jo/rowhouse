@@ -34,6 +34,7 @@
     "@fastify/multipart": "^10.1.0",
     "@fastify/rate-limit": "^11.1.0",
     "@fastify/static": "^9.0.0",
+    "@google-cloud/cloud-sql-connector": "^1.11.3",
     "@nestjs/common": "^11.1.17",
     "@nestjs/core": "^11.1.17",
     "@nestjs/platform-fastify": "^11.1.17",

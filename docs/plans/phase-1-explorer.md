@@ -63,3 +63,19 @@ Against the seeded sample-db: open `orders` in the grid (200 rows page by
 page, newest first), open one order — see its customer resolved and its
 order_items listed with a count; click through to the customer and see
 their orders back-referenced. Audit view shows one READ per page served.
+
+## Slice C — Grid filters, sort and search (`feat/explorer-refinements`)
+
+- Backend: the rows endpoint accepts `filters` (JSON array of
+  `{column, op, value}` with a whitelisted operator set: eq, neq,
+  contains, gt, gte, lt, lte, isnull, notnull), `sort` (snapshot-validated
+  column + direction) and `search` (ILIKE across text-ish columns).
+  Identifiers are snapshot-validated and quoted; values are always
+  parameterized. Keyset pagination composes with custom sort by extending
+  the row-value comparison to `(sortColumn, ...pk)` — the cursor encodes
+  the sort value plus the PK values.
+- Frontend: sortable column headers, per-column filter popovers, a search
+  box, active-filter chips; all reflected in the URL so views are
+  shareable.
+- Audit unchanged: one READ per page, params as digest.
+

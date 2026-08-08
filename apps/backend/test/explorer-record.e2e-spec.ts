@@ -194,6 +194,7 @@ describe('Explorer record detail (e2e)', () => {
           .post(`/workspaces/${workspaceA}/projects/${projectA}/datasources`)
           .set('Cookie', cookieA)
           .send({
+            method: 'DIRECT',
             name: 'Main DB',
             host: 'db.internal',
             port: 5432,

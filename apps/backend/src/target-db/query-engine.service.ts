@@ -7,6 +7,7 @@ import type {
   ReadResult,
 } from './external-datasource.d.ts';
 import { PostgresExternalDatasource } from './postgres.external-datasource';
+import { resolveConnectionConfig } from './resolve-connection-config';
 import {
   TargetConnectionFactory,
   type TargetConnection,
@@ -73,7 +74,11 @@ export class QueryEngine {
         id: context.datasourceId,
         project: { workspaceId: context.workspaceId },
       },
-      include: { credentials: { where: { role } } },
+      include: {
+        credentials: { where: { role } },
+        direct: true,
+        cloudSql: true,
+      },
     });
     if (!datasource || datasource.credentials.length === 0) {
       throw new NotFoundException('Datasource not found');
@@ -83,19 +88,10 @@ export class QueryEngine {
     const startedAt = Date.now();
     let connection: TargetConnection | null = null;
     try {
-      const password = await this.vault.openSecret({
-        secretSealed: Buffer.from(credential.secretSealed),
-        dekWrapped: Buffer.from(credential.dekWrapped),
-        dekKeyId: credential.dekKeyId,
-      });
-      connection = await this.connections.connect({
-        host: datasource.host,
-        port: datasource.port,
-        database: datasource.database,
-        user: credential.username,
-        password,
-        ssl: datasource.sslMode === 'REQUIRE',
-      });
+      // Resolves the method row (decision D12) and unseals just-in-time.
+      connection = await this.connections.connect(
+        await resolveConnectionConfig(datasource, credential, this.vault),
+      );
       const result = await run(connection);
       await this.audit.record({
         workspaceId: context.workspaceId,

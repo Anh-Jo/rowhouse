@@ -27,8 +27,9 @@ import {
 } from './datasource.service';
 
 /**
- * Maps a row to the response shape: role usernames only — the sealed secret
- * columns never cross this boundary (decision D10).
+ * Maps a row to the response shape: role usernames and non-secret method
+ * fields only — the sealed secret columns (role passwords, the Cloud SQL
+ * service-account key) never cross this boundary (decision D10).
  */
 function toDatasourceDto(row: DatasourceWithCredentials): DatasourceDto {
   return {
@@ -36,10 +37,25 @@ function toDatasourceDto(row: DatasourceWithCredentials): DatasourceDto {
     projectId: row.projectId,
     name: row.name,
     type: row.type,
-    host: row.host,
-    port: row.port,
-    database: row.database,
-    sslMode: row.sslMode,
+    method: row.connectionMethod,
+    ...(row.direct
+      ? {
+          host: row.direct.host,
+          port: row.direct.port,
+          database: row.direct.database,
+          sslMode: row.direct.sslMode,
+          caCert: row.direct.caCert,
+        }
+      : {}),
+    ...(row.cloudSql
+      ? {
+          cloudSql: {
+            instanceConnectionName: row.cloudSql.instanceConnectionName,
+            database: row.cloudSql.database,
+            authType: row.cloudSql.authType,
+          },
+        }
+      : {}),
     roles: row.credentials.map((credential) => ({
       role: credential.role,
       username: credential.username,

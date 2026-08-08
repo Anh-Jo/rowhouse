@@ -41,22 +41,25 @@ model Project {
 /// here; secrets live in DatasourceCredential, encrypted. `type` is an enum
 /// of one on purpose (transverse decision D1: Postgres only until after V1)
 /// so adding an engine is a schema migration, not a stringly-typed drift.
+///
+/// How the database is *reached* is the `connectionMethod` discriminator with
+/// one dedicated table per method (decision D12: typed columns and a
+/// migration per method, never nullable-column soup or a JSON blob).
+/// Invariant, service-enforced and test-pinned: exactly one method row,
+/// matching the discriminator — both written in the same transaction.
 model Datasource {
-  id          String                 @id @default(cuid())
-  project     Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId   String
-  name        String
-  type        DatasourceType         @default(POSTGRES)
-  host        String
-  port        Int
-  database    String
-  /// TLS on the target connection. Required by default (decision D11);
-  /// DISABLE must be an explicit, visible choice (dev databases).
-  sslMode      DatasourceSslMode      @default(REQUIRE)
-  credentials  DatasourceCredential[]
-  schemaTables SchemaTable[]
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id               String                 @id @default(cuid())
+  project          Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId        String
+  name             String
+  type             DatasourceType         @default(POSTGRES)
+  connectionMethod ConnectionMethod       @default(DIRECT)
+  direct           DirectConnection?
+  cloudSql         CloudSqlConnection?
+  credentials      DatasourceCredential[]
+  schemaTables     SchemaTable[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@unique([projectId, name])
   @@index([projectId])
@@ -66,9 +69,59 @@ enum DatasourceType {
   POSTGRES
 }
 
+enum ConnectionMethod {
+  DIRECT
+  CLOUDSQL
+}
+
 enum DatasourceSslMode {
   DISABLE
   REQUIRE
+}
+
+/// Direct TCP reachability (decision D12): the method every P0/P1 datasource
+/// used implicitly, now its own table.
+model DirectConnection {
+  id           String     @id @default(cuid())
+  datasource   Datasource @relation(fields: [datasourceId], references: [id], onDelete: Cascade)
+  datasourceId String     @unique
+  host         String
+  port         Int
+  database     String
+  /// TLS on the target connection. Required by default (decision D11);
+  /// DISABLE must be an explicit, visible choice (dev databases).
+  sslMode      DatasourceSslMode @default(REQUIRE)
+  /// Customer-supplied CA certificate (PEM). Public-key material, not a
+  /// secret — stored in the clear. When present the connection verifies the
+  /// server certificate against it (verify-full semantics instead of
+  /// libpq-require's unverified TLS).
+  caCert       String?
+}
+
+/// Google Cloud SQL reachability via the official connector (decision D12):
+/// mTLS managed by Google, no IP allowlisting. The service-account key is a
+/// secret and uses the same sealed triplet as credentials (decision D10), so
+/// KEK rotation stays one mechanical rewrap. Under IAM auth the role
+/// credentials carry no password at all — ephemeral tokens end to end.
+model CloudSqlConnection {
+  id                     String           @id @default(cuid())
+  datasource             Datasource       @relation(fields: [datasourceId], references: [id], onDelete: Cascade)
+  datasourceId           String           @unique
+  /// `project:region:instance` — the connector's addressing, no host/port.
+  instanceConnectionName String
+  database               String
+  authType               CloudSqlAuthType
+  /// AES-256-GCM: IV || ciphertext || auth tag, in one column.
+  saKeySealed            Bytes
+  /// The per-key DEK, wrapped by the KeyProvider (opaque to us).
+  saKeyDekWrapped        Bytes
+  /// Identifies the KEK that wrapped the DEK — enables rotation by rewrap.
+  saKeyDekKeyId          String
+}
+
+enum CloudSqlAuthType {
+  IAM
+  BUILT_IN
 }
 
 /// One database role of a datasource (exactly two rows per datasource:
