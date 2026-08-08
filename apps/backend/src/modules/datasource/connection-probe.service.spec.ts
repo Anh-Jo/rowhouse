@@ -2,7 +2,7 @@ import { ConnectionProbe } from './connection-probe.service';
 import type {
   TargetConnection,
   TargetConnectionFactory,
-} from './target-connection.factory';
+} from '@/target-db/target-connection.factory';
 
 const PARAMS = {
   host: 'db.example.com',

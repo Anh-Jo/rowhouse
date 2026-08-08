@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ZodResponse } from 'nestjs-zod';
-import { CurrentWorkspace } from '@/auth/decorators';
+import { CurrentUser, CurrentWorkspace } from '@/auth/decorators';
 import { WorkspaceMemberGuard } from '@/auth/workspace.guard';
 import {
   ConnectionTestDto,
@@ -106,11 +106,13 @@ export class DatasourceController {
     @CurrentWorkspace() workspaceId: string,
     @Param('projectId') projectId: string,
     @Param('datasourceId') datasourceId: string,
+    @CurrentUser() actorId: string,
   ): Promise<ConnectionTestDto> {
     return this.datasourceService.testConnection(
       workspaceId,
       projectId,
       datasourceId,
+      actorId,
     );
   }
 }

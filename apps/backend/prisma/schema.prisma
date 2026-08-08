@@ -97,3 +97,41 @@ enum CredentialRole {
   READ_ONLY
   READ_WRITE
 }
+
+/// Append-only journal of everything executed against customer databases
+/// (transverse decision D3). Insert-only at the application layer: the audit
+/// service exposes no update or delete. `statement` is our own generated SQL
+/// (never raw row data); query parameters are stored as a digest only, since
+/// they may carry customer PII.
+model AuditEvent {
+  id           String          @id @default(cuid())
+  workspaceId  String
+  actorId      String
+  datasourceId String?
+  role         CredentialRole?
+  action       AuditAction
+  statement    String?
+  paramsDigest String?
+  rowCount     Int?
+  durationMs   Int
+  status       AuditStatus
+  errorMessage String?
+  /// Filled from P2 on: the human who approved a sensitive action.
+  approvedBy   String?
+  createdAt    DateTime        @default(now())
+
+  @@index([workspaceId, createdAt, id])
+  @@index([datasourceId])
+}
+
+enum AuditAction {
+  CONNECTION_TEST
+  INTROSPECT
+  READ
+}
+
+enum AuditStatus {
+  OK
+  ERROR
+}
+

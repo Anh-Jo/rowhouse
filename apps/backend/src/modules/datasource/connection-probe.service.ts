@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   TargetConnectionFactory,
   type TargetConnectionParams,
-} from './target-connection.factory';
+} from '@/target-db/target-connection.factory';
 
 /** Outcome of probing one role of a datasource. */
 export type ProbeResult = {
