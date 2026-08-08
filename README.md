@@ -50,6 +50,7 @@ Each step also runs on its own (all idempotent — safe to re-run):
 | **App**          | Backend API    | 3000 |
 | **App**          | Frontend (Vite)| 5173 |
 | **Dev (3xxx)**   | PostgreSQL     | 3010 |
+| **Dev (3xxx)**   | Sample target DB (PostgreSQL) | 3011 |
 | **Dev (3xxx)**   | Mailpit SMTP   | 3020 |
 | **Dev (3xxx)**   | Mailpit UI     | 3021 |
 | **Test (4xxx)**  | PostgreSQL     | 4010 |
