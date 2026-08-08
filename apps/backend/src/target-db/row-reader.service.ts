@@ -6,6 +6,9 @@ import {
   buildListRows,
   decodeRowKey,
   encodeRowKey,
+  type RowFilter,
+  type RowSearch,
+  type RowSort,
   type TableRef,
 } from './postgres-sql.builders';
 import { QueryEngine, type ExecutionContext } from './query-engine.service';
@@ -53,11 +56,23 @@ export class RowReader {
   async listRows(
     context: ExecutionContext,
     table: TableShape,
-    query: { cursor?: string; limit: number },
+    query: {
+      cursor?: string;
+      limit: number;
+      filters?: RowFilter[];
+      search?: RowSearch;
+      sort?: RowSort;
+    },
   ): Promise<RowPage> {
+    // With a custom sort the cursor carries the sort value in front of the
+    // PK values, so its arity (and the keyset tuple) grows by one.
+    const cursorColumns =
+      query.sort !== undefined
+        ? [query.sort.column, ...table.pkColumns]
+        : table.pkColumns;
     const cursorValues =
       query.cursor && table.pkColumns.length > 0
-        ? decodeRowKey(query.cursor, table.pkColumns.length)
+        ? decodeRowKey(query.cursor, cursorColumns.length)
         : undefined;
     const statement = buildListRows({
       table,
@@ -65,6 +80,9 @@ export class RowReader {
       pkColumns: table.pkColumns,
       limit: query.limit,
       cursorValues,
+      filters: query.filters,
+      search: query.search,
+      sort: query.sort,
     });
     const result = await this.engine.executeRead(
       context,
@@ -78,7 +96,7 @@ export class RowReader {
     const nextCursor =
       hasMore && table.pkColumns.length > 0 && rows.length > 0
         ? encodeRowKey(
-            table.pkColumns.map(
+            cursorColumns.map(
               (column) =>
                 (result.rows[query.limit - 1] as Record<string, unknown>)[
                   column

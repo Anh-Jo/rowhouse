@@ -8,6 +8,22 @@ const ListRowsQuerySchema = z.object({
     .int()
     .optional()
     .describe('Page size (clamped server-side)'),
+  filters: z
+    .string()
+    .optional()
+    .describe(
+      'JSON array of {column, op, value} — op in eq|neq|contains|gt|gte|lt|lte|isnull|notnull; columns validated against the snapshot',
+    ),
+  sort: z
+    .string()
+    .optional()
+    .describe('`column:direction` — snapshot-validated column, asc|desc'),
+  search: z
+    .string()
+    .optional()
+    .describe(
+      'Substring searched (ILIKE) across the table’s text-ish columns — the server picks which',
+    ),
 });
 
 export class ListRowsQueryDto extends createZodDto(ListRowsQuerySchema) {}
@@ -25,7 +41,9 @@ const RowSchema = z.object({
 });
 
 const RowPageSchema = z.object({
-  items: z.array(RowSchema).describe('Rows in primary-key order'),
+  items: z
+    .array(RowSchema)
+    .describe('Rows in primary-key order (or the requested sort order)'),
   nextCursor: z
     .string()
     .nullable()
