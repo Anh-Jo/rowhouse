@@ -57,6 +57,7 @@ function cookieHeader(setCookie: string[] | undefined): string {
 }
 
 const VALID_BODY = {
+  method: 'DIRECT',
   name: 'Main DB',
   host: 'db.internal',
   port: 5432,
