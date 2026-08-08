@@ -38,9 +38,8 @@
       "entry": [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.stories.tsx",
-        // scaffolding components: available building blocks, not yet used by a page
-        "src/components/Icon/Icon.tsx",
-        "src/components/Popover/Popover.tsx"
+        // scaffolding component: available building block, not yet used by a page
+        "src/components/Icon/Icon.tsx"
       ],
       // declared react-query binding for the OpenAPI client. Not wired yet:
       // the contract omits guard-declared path params (workspaceId), so data

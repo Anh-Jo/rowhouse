@@ -20,12 +20,26 @@ export const schemaKeys = {
 };
 
 export const explorerKeys = {
+  // Refinements are part of the key (in their serialized API form) so every
+  // filter/sort/search combination caches separately and changing one starts
+  // a fresh first page — the cursor chain of the old view never leaks in.
   rows: (
     workspaceId: string,
     projectId: string,
     datasourceId: string,
     tableId: string,
-  ) => ['explorer-rows', workspaceId, projectId, datasourceId, tableId] as const,
+    refinements: { filters?: string; sort?: string; search?: string } = {},
+  ) =>
+    [
+      'explorer-rows',
+      workspaceId,
+      projectId,
+      datasourceId,
+      tableId,
+      refinements.filters ?? null,
+      refinements.sort ?? null,
+      refinements.search ?? null,
+    ] as const,
   // tableId AND rowKey in the key: record → record navigation (customer →
   // order → back) must never serve one record's cache for another.
   record: (

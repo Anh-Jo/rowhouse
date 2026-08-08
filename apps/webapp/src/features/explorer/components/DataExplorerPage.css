@@ -156,6 +156,183 @@
   gap: var(--space-2);
 }
 
+/* ── Toolbar: search over the text-ish columns ── */
+.rows-grid__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.rows-grid__search {
+  position: relative;
+  width: min(320px, 100%);
+}
+
+/* The ✕ sits inside the input, over its right padding. */
+.rows-grid__search-clear {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.rows-grid__search-clear:hover {
+  color: var(--color-text);
+  background-color: var(--color-hover-muted);
+}
+
+/* ── Active-filter chips ── */
+.rows-grid__chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rows-grid__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-1) 2px var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent-subtle);
+  color: var(--color-accent-text);
+}
+
+/* Filter expressions are data: mono voice, like cell values. */
+.rows-grid__chip-label {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-12);
+}
+
+.rows-grid__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-full);
+  color: inherit;
+  cursor: pointer;
+}
+
+.rows-grid__chip-remove:hover {
+  background-color: var(--color-hover-muted);
+}
+
+/* ── Header controls: sort button + filter funnel ── */
+
+/* The column name doubles as the sort control — styled as plain header
+   text, the arrow announces the active direction. */
+.rows-grid__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rows-grid__sort:hover {
+  color: var(--color-text);
+}
+
+.rows-grid__sort-icon {
+  display: inline-flex;
+  color: var(--color-text-muted);
+  /* The tri-state hint only appears on hover; the active arrow always. */
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.rows-grid__sort:hover .rows-grid__sort-icon,
+.rows-grid__sort--active .rows-grid__sort-icon {
+  opacity: 1;
+}
+
+.rows-grid__sort--active {
+  color: var(--color-accent-text);
+}
+
+.rows-grid__sort--active .rows-grid__sort-icon {
+  color: var(--color-accent-text);
+}
+
+.column-filter__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  /* Quiet until the header is hovered or the column is filtered. */
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.data-table__th:hover .column-filter__trigger,
+.column-filter__trigger--active,
+.column-filter__trigger[data-state='open'] {
+  opacity: 1;
+}
+
+.column-filter__trigger:hover {
+  color: var(--color-text);
+  background-color: var(--color-hover-muted);
+}
+
+.column-filter__trigger--active {
+  color: var(--color-accent-text);
+}
+
+.column-filter__count {
+  font-size: var(--font-size-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.column-filter__popover {
+  padding: var(--space-4);
+}
+
+.column-filter__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.column-filter__title {
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+}
+
+.column-filter__title code {
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.column-filter__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .rows-grid__footer {
   display: flex;
   align-items: center;
