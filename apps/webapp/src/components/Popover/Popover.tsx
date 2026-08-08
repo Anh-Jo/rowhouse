@@ -27,4 +27,5 @@ function Popover({ trigger, children, align = 'end', side = 'bottom', open, onOp
 }
 
 export { Popover };
+/** Public component API — consumers type their props with this. @public */
 export type { PopoverProps };

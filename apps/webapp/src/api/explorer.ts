@@ -10,13 +10,25 @@ export type RecordDetailDto = components['schemas']['RecordDetailDto_Output'];
  * SchemaTable id — the snapshot, not a client-supplied table name. `cursor`
  * is the opaque keyset cursor from the previous page; `nextCursor` is null
  * on the last page and for tables without a primary key (first page only).
+ *
+ * Refinements ride along pre-serialized, exactly as the server takes them:
+ * `filters` is the JSON string of `[{column, op, value}]`, `sort` is
+ * `column:asc|desc`, `search` a plain substring (see
+ * `features/explorer/helpers/row-query.ts` for the builders). Invalid
+ * refinements are a 400 with a precise, displayable message.
  */
 export async function listTableRows(
   workspaceId: string,
   projectId: string,
   datasourceId: string,
   tableId: string,
-  options: { cursor?: string; limit?: number } = {},
+  options: {
+    cursor?: string;
+    limit?: number;
+    filters?: string;
+    sort?: string;
+    search?: string;
+  } = {},
 ): Promise<RowPageDto> {
   return unwrapApiResult(
     await fetchClient.GET(

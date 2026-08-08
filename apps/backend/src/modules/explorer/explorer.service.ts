@@ -3,14 +3,50 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { z } from 'zod';
 import { PrismaService } from '@/prisma/prisma.service';
 import { clampLimit } from '@/helpers/pagination';
-import { encodeRowKey } from '@/target-db/postgres-sql.builders';
+import {
+  FILTER_OPS,
+  encodeRowKey,
+  type RowFilter,
+  type RowSearch,
+  type RowSort,
+} from '@/target-db/postgres-sql.builders';
 import { RowReader, type TableShape } from '@/target-db/row-reader.service';
 import type { SchemaColumn } from '../../generated/prisma/client';
 
 /** Rows shown per incoming-relation panel before "view all" (slice B UI). */
 const RELATED_ROWS_LIMIT = 10;
+
+/** Sanity bound — a grid never sends more per-column filters than columns. */
+const MAX_FILTERS = 20;
+
+/** Shape of one entry of the `filters` query param (JSON-encoded array). */
+const FilterSchema = z.object({
+  column: z.string().min(1),
+  op: z.enum(FILTER_OPS),
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+});
+
+const FiltersSchema = z.array(FilterSchema).max(MAX_FILTERS);
+
+/**
+ * Column types the server searches with `search` (ILIKE on `::text`).
+ * Numeric/temporal columns are excluded on purpose: substring-matching them
+ * surprises more than it helps — use a filter for those.
+ */
+function isSearchableType(dataType: string): boolean {
+  const type = dataType.toLowerCase();
+  return (
+    type === 'text' ||
+    type === 'citext' ||
+    type === 'uuid' ||
+    type.startsWith('character') || // character, character varying(…)
+    type.startsWith('varchar') ||
+    type.startsWith('char')
+  );
+}
 
 export type ExplorerRow = {
   key: string | null;
@@ -64,7 +100,13 @@ export class ExplorerService {
     datasourceId: string,
     tableId: string,
     actorId: string,
-    query: { cursor?: string; limit?: number },
+    query: {
+      cursor?: string;
+      limit?: number;
+      filters?: string;
+      sort?: string;
+      search?: string;
+    },
   ): Promise<{ items: ExplorerRow[]; nextCursor: string | null }> {
     const table = await this.resolveTable(
       workspaceId,
@@ -72,12 +114,21 @@ export class ExplorerService {
       datasourceId,
       tableId,
     );
+    const filters = this.parseFilters(query.filters, table);
+    const sort = this.parseSort(query.sort, table);
+    const search = this.pickSearch(query.search, table);
     let page;
     try {
       page = await this.rowReader.listRows(
         { workspaceId, actorId, datasourceId },
         table,
-        { cursor: query.cursor, limit: clampLimit(query.limit) },
+        {
+          cursor: query.cursor,
+          limit: clampLimit(query.limit),
+          filters,
+          search,
+          sort,
+        },
       );
     } catch (error) {
       // A garbled cursor is a client mistake, not a server failure.
@@ -96,6 +147,102 @@ export class ExplorerService {
       })),
       nextCursor: page.nextCursor,
     };
+  }
+
+  /**
+   * `filters` arrives as a JSON string. Anything off — unparseable JSON,
+   * wrong shape, unknown column, unknown op, value not matching the op —
+   * is a 400 with a message precise enough to fix the request.
+   */
+  private parseFilters(
+    raw: string | undefined,
+    table: TableShape,
+  ): RowFilter[] | undefined {
+    if (raw === undefined || raw === '') {
+      return undefined;
+    }
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      throw new BadRequestException('`filters` must be valid JSON');
+    }
+    const parsed = FiltersSchema.safeParse(json);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      throw new BadRequestException(
+        `\`filters\` must be an array of {column, op, value} objects (op one of ${FILTER_OPS.join(', ')}): ${issue.path.join('.')} ${issue.message}`,
+      );
+    }
+    for (const filter of parsed.data) {
+      if (!table.columns.includes(filter.column)) {
+        throw new BadRequestException(
+          `Unknown filter column "${filter.column}"`,
+        );
+      }
+      if (filter.op === 'isnull' || filter.op === 'notnull') {
+        if (filter.value !== undefined && filter.value !== null) {
+          throw new BadRequestException(
+            `Filter op "${filter.op}" takes no value`,
+          );
+        }
+      } else if (filter.op === 'contains') {
+        if (typeof filter.value !== 'string') {
+          throw new BadRequestException(
+            'Filter op "contains" needs a string value',
+          );
+        }
+      } else if (filter.value === undefined || filter.value === null) {
+        throw new BadRequestException(
+          `Filter op "${filter.op}" needs a non-null value (use isnull/notnull for NULL checks)`,
+        );
+      }
+    }
+    return parsed.data;
+  }
+
+  /**
+   * `sort` arrives as `column:direction`. The column must exist in the
+   * snapshot. On a PK-less table sort still applies — such tables serve the
+   * first page only, and sorting that page is fine.
+   */
+  private parseSort(
+    raw: string | undefined,
+    table: TableShape,
+  ): RowSort | undefined {
+    if (raw === undefined || raw === '') {
+      return undefined;
+    }
+    const match = /^(.+):(asc|desc)$/.exec(raw);
+    if (!match) {
+      throw new BadRequestException(
+        '`sort` must be `column:direction` with direction asc or desc',
+      );
+    }
+    const [, column, direction] = match;
+    if (!table.columns.includes(column)) {
+      throw new BadRequestException(`Unknown sort column "${column}"`);
+    }
+    return { column, direction: direction as 'asc' | 'desc' };
+  }
+
+  /**
+   * The server — not the client — picks which columns `search` scans: the
+   * snapshot's text-ish ones. A table with none simply ignores the search
+   * (an empty grid would read as "no data", which is wrong).
+   */
+  private pickSearch(
+    raw: string | undefined,
+    table: TableShape & { columns$: SchemaColumn[] },
+  ): RowSearch | undefined {
+    const query = raw?.trim();
+    if (!query) {
+      return undefined;
+    }
+    const columns = table.columns$
+      .filter((column) => isSearchableType(column.dataType))
+      .map((column) => column.name);
+    return columns.length > 0 ? { columns, query } : undefined;
   }
 
   /**
