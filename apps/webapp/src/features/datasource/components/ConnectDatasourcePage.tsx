@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/Button/Button';
+import { Callout } from '@/components/Callout/Callout';
+import { CodeBlock } from '@/components/CodeBlock/CodeBlock';
 import { FormError } from '@/components/FormError/FormError';
 import { Input } from '@/components/Input/Input';
+import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { Select } from '@/components/Select/Select';
 import {
   createDatasource,
@@ -39,6 +42,19 @@ type ConnectStage =
   | { step: 'testing' }
   | { step: 'failed'; problems: string[] }
   | { step: 'syncing' };
+
+/* Least-privilege onboarding (transverse decision D11): we never ask for a
+   superuser — the customer creates two scoped roles with this snippet. */
+const ROLE_SQL_SNIPPET = `-- Run once on the target database, as an admin.
+CREATE ROLE rowhouse_ro LOGIN PASSWORD '<read-only-password>';
+GRANT CONNECT ON DATABASE <database> TO rowhouse_ro;
+GRANT USAGE ON SCHEMA public TO rowhouse_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO rowhouse_ro;
+
+CREATE ROLE rowhouse_rw LOGIN PASSWORD '<read-write-password>';
+GRANT CONNECT ON DATABASE <database> TO rowhouse_rw;
+GRANT USAGE ON SCHEMA public TO rowhouse_rw;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rowhouse_rw;`;
 
 /**
  * What the server currently holds for the registered datasource (passwords
@@ -260,30 +276,29 @@ function ConnectDatasourcePage() {
 
   return (
     <div className="connect-page">
-      <header className="connect-page__header">
-        <h1 className="connect-page__title">Connect a database</h1>
-        <p className="connect-page__subtitle">
-          Rowhouse connects with two dedicated least-privilege roles — never a
+      <PageHeader
+        title="Connect a database"
+        subtitle="Rowhouse connects with two dedicated least-privilege roles — never a
           superuser. Reads use the read-only role; the read-write role is only
-          used behind approvals.
-        </p>
-      </header>
+          used behind approvals."
+      />
+
+      <details className="connect-page__sql">
+        <summary className="connect-page__sql-summary">
+          Need to create the roles? Run this snippet on your database first.
+        </summary>
+        <CodeBlock code={ROLE_SQL_SNIPPET} label="SQL" />
+      </details>
 
       {stage.step === 'syncing' && (
-        <div className="connect-result connect-result--ok" role="status">
-          <CheckCircle2 size={20} aria-hidden />
-          <div>
-            <strong>Connection OK.</strong> Both roles verified — the read-only
-            role cannot write. Syncing the schema…
-          </div>
-        </div>
+        <Callout variant="success" title="Connection OK.">
+          Both roles verified — the read-only role cannot write. Syncing the
+          schema…
+        </Callout>
       )}
 
       {stage.step === 'failed' && (
-        <div className="connect-result connect-result--failed" role="alert">
-          <strong className="connect-result__headline">
-            Connection test failed
-          </strong>
+        <Callout variant="danger" title="Connection test failed">
           <ul className="connect-result__problems">
             {stage.problems.map((problem) =>
               isReadOnlyCanWriteProblem(problem) ? (
@@ -309,7 +324,7 @@ function ConnectDatasourcePage() {
             Fix the fields below — password fields left blank keep the stored
             password — then retry the test.
           </p>
-        </div>
+        </Callout>
       )}
 
       <form

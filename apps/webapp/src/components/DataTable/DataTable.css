@@ -1,32 +1,41 @@
+/* Dense data voice: mono 13 with tabular numerals, 28px rows, sticky header. */
 .data-table__wrapper {
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
   overflow-x: auto;
+  /* Sticky header needs the vertical scroll context to live here. */
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .data-table__th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
   text-align: left;
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-xs);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-12);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background-color: var(--color-border-light);
-  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface-sunken);
+  border-bottom: var(--border-width) solid var(--color-border);
   white-space: nowrap;
 }
 
 .data-table__th--sortable {
   cursor: pointer;
   user-select: none;
+  transition: color var(--transition-fast);
 }
 
 .data-table__th--sortable:hover {
@@ -43,6 +52,7 @@
   display: inline-flex;
   align-items: center;
   opacity: 0.5;
+  transition: opacity var(--transition-fast);
 }
 
 .data-table__th--sortable:hover .data-table__sort-icon {
@@ -50,12 +60,7 @@
 }
 
 .data-table__row {
-  border-bottom: 1px solid var(--color-border-light);
   transition: background-color var(--transition-fast);
-}
-
-.data-table__row:last-child {
-  border-bottom: none;
 }
 
 .data-table__row--clickable {
@@ -63,28 +68,38 @@
 }
 
 .data-table__row:hover {
-  background-color: var(--color-border-light);
+  background-color: var(--color-row-hover);
 }
 
+/* Cell content is data: mono, tabular numerals, dense 28px line */
 .data-table__td {
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-3);
+  height: var(--control-height-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text);
   vertical-align: middle;
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.data-table__row:last-child .data-table__td {
+  border-bottom: none;
 }
 
 .data-table__td--actions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  font-family: var(--font-ui);
 }
 
 .data-table__empty {
   padding: var(--space-12) var(--space-4);
   text-align: center;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-13);
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
 }

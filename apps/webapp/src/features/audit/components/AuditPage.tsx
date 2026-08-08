@@ -4,6 +4,8 @@ import { Badge } from '@/components/Badge/Badge';
 import { Button } from '@/components/Button/Button';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { FormError } from '@/components/FormError/FormError';
+import { PageHeader } from '@/components/PageHeader/PageHeader';
+import { StatusPill } from '@/components/StatusPill/StatusPill';
 import { listAuditEvents, type AuditEventDto } from '@/api/audit';
 import { auditKeys } from '@/api/query-keys';
 import { useWorkspaceId } from '@/hooks/useWorkspaceId';
@@ -45,13 +47,10 @@ function AuditPage() {
 
   return (
     <div className="audit-page">
-      <header>
-        <h1 className="audit-page__title">Audit log</h1>
-        <p className="audit-page__subtitle">
-          Every statement executed against your databases — append-only, no
-          exceptions.
-        </p>
-      </header>
+      <PageHeader
+        title="Audit log"
+        subtitle="Every statement executed against your databases — append-only, no exceptions."
+      />
 
       {events.length === 0 ? (
         <EmptyState
@@ -74,9 +73,9 @@ function AuditPage() {
                       variant={event.role === 'READ_ONLY' ? 'muted' : 'warning'}
                     />
                   )}
-                  <Badge
+                  <StatusPill
+                    status={event.status === 'OK' ? 'ok' : 'error'}
                     label={event.status}
-                    variant={event.status === 'OK' ? 'success' : 'danger'}
                   />
                 </span>
                 <span className="audit-page__event-duration">

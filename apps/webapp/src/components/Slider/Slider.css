@@ -11,15 +11,17 @@
 }
 
 .slider-field__label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-13);
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
+/* Value readout is data — mono, tabular */
 .slider-field__value {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent-text);
 }
 
 .slider-field__root {
@@ -43,26 +45,26 @@
 .slider-field__range {
   position: absolute;
   height: 100%;
-  background-color: var(--color-primary);
+  background-color: var(--color-accent);
   border-radius: var(--radius-full);
 }
 
 .slider-field__thumb {
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   background-color: var(--color-surface);
-  border: 2px solid var(--color-primary);
+  border: 2px solid var(--color-accent);
   border-radius: var(--radius-full);
   cursor: pointer;
   transition: box-shadow var(--transition-fast);
 }
 
 .slider-field__thumb:hover {
-  box-shadow: 0 0 0 4px var(--color-info-light);
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
 }
 
 .slider-field__thumb:focus {
   outline: none;
-  box-shadow: 0 0 0 4px var(--color-info-light);
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
 }

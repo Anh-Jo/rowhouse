@@ -1,3 +1,4 @@
+import { Callout } from '@/components/Callout/Callout';
 import './FormError.css';
 
 type FormErrorProps = {
@@ -11,9 +12,9 @@ function FormError({ message }: FormErrorProps) {
     return null;
   }
   return (
-    <div className="form-error" role="alert">
+    <Callout variant="danger" role="alert" className="form-error">
       {message}
-    </div>
+    </Callout>
   );
 }
 

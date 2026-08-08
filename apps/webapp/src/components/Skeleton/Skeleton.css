@@ -1,0 +1,33 @@
+.skeleton {
+  display: block;
+  background: var(--color-hover-muted);
+  animation: skeleton-pulse 1.4s var(--ease-out) infinite;
+}
+
+.skeleton--text {
+  height: 0.9em;
+  width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton--block {
+  height: 80px;
+  width: 100%;
+  border-radius: var(--radius-md);
+}
+
+.skeleton--circle {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

@@ -1,34 +1,33 @@
+/* The shell is the product: a quiet slate surface, borders over shadows,
+   accent only on the active state. Docked full-height, 1px seam. */
 .tahoe-sidebar {
   position: fixed;
-  top: var(--sidebar-inset);
-  left: var(--sidebar-inset);
-  bottom: var(--sidebar-inset);
+  top: 0;
+  left: 0;
+  bottom: 0;
   width: var(--sidebar-width);
   background: var(--sidebar-bg);
-  backdrop-filter: blur(var(--sidebar-blur));
-  -webkit-backdrop-filter: blur(var(--sidebar-blur));
-  border-radius: var(--sidebar-radius-outer);
-  border: var(--sidebar-border-tahoe);
-  box-shadow: var(--sidebar-shadow-tahoe);
+  border-right: var(--border-width) solid var(--color-border);
   display: flex;
   flex-direction: column;
-  z-index: 100;
-  padding: var(--space-4);
+  z-index: var(--z-sidebar);
+  padding: var(--space-4) var(--space-3);
   overflow-y: auto;
 }
 
 .tahoe-sidebar__header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding-bottom: var(--space-4);
+  gap: var(--space-2);
+  padding: 0 var(--space-2) var(--space-4);
   margin-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
 }
 
 .tahoe-sidebar__brand {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
   color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
@@ -47,43 +46,48 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-sm);
+  height: var(--control-height-md);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
   text-decoration: none;
 }
 
 .tahoe-sidebar__link:hover {
-  background-color: var(--color-border-light);
+  background-color: var(--color-hover-muted);
   color: var(--color-text);
 }
 
+/* Active: the only place the accent shows up in the chrome */
 .tahoe-sidebar__link--active {
-  background-color: var(--color-primary);
-  color: var(--color-text-inverse);
+  background-color: var(--color-accent-subtle);
+  color: var(--color-accent-text);
 }
 
 .tahoe-sidebar__link--active:hover {
-  background-color: var(--color-primary-light);
-  color: var(--color-text-inverse);
+  background-color: var(--color-accent-subtle);
+  color: var(--color-accent-text);
 }
 
 .tahoe-sidebar__bottom {
-  border-top: 1px solid var(--color-border);
+  border-top: var(--border-width) solid var(--color-border-subtle);
   padding-top: var(--space-3);
   margin-top: var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .tahoe-sidebar__user {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   overflow: hidden;
 }
 
@@ -94,8 +98,8 @@
 }
 
 .tahoe-sidebar__user-email {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -105,43 +109,48 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  height: var(--control-height-md);
+  padding: 0 var(--space-2);
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: transparent;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-13);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
   width: 100%;
   text-align: left;
 }
 
 .tahoe-sidebar__logout:hover {
-  background-color: var(--color-danger-light);
-  color: var(--color-danger);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger-text);
 }
 
 .tahoe-sidebar__user-info .tahoe-sidebar__label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-13);
   color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Mobile (< 768px): the floating sidebar becomes a floating bottom bar —
-   icon-only navigation (labels hidden, aria-labels keep it accessible),
-   usable down to 375px (transverse decision D7: mobile-first). */
+/* Mobile (< 768px): the sidebar becomes a docked bottom bar — icon-only
+   navigation (labels hidden, aria-labels keep it accessible), usable down
+   to 375px (transverse decision D7: mobile-first). */
 @media (max-width: 767px) {
   .tahoe-sidebar {
     top: auto;
-    right: var(--sidebar-inset);
+    right: 0;
     width: auto;
     height: var(--bottomnav-height);
     flex-direction: row;
     align-items: center;
     padding: 0 var(--space-3);
+    border-right: none;
+    border-top: var(--border-width) solid var(--color-border);
     overflow-y: visible;
     gap: var(--space-2);
   }
@@ -164,6 +173,7 @@
 
   .tahoe-sidebar__link {
     padding: var(--space-2);
+    height: auto;
   }
 
   .tahoe-sidebar__bottom {
@@ -181,6 +191,7 @@
 
   .tahoe-sidebar__logout {
     width: auto;
+    height: auto;
     padding: var(--space-2);
   }
 }

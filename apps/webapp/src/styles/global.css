@@ -1,12 +1,33 @@
 body {
-  font-family: var(--font-family);
-  font-size: var(--font-size-base);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
   color: var(--color-text);
-  background-color: var(--color-background);
+  background-color: var(--color-bg);
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Data voice: anything holding row data, identifiers, SQL or schema names.
+   Tabular numerals keep columns of figures aligned. */
+code,
+kbd,
+pre,
+samp,
+.font-data {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Uppercase micro-label for section eyebrows and quiet group titles. */
+.eyebrow {
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
 }
 
 /* Scrollbar styling */
@@ -20,32 +41,21 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--color-border-strong);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted-light);
+  background: var(--color-text-muted);
 }
 
-/* Focus visible */
+/* Focus visible: single accent ring everywhere */
 :focus-visible {
-  outline: 2px solid var(--color-info);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* Card base */
-.card-base {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-/* Form field base */
+/* Form field base (shared by Field and the labelled controls) */
 .form-field {
   display: flex;
   flex-direction: column;
@@ -53,33 +63,19 @@ body {
 }
 
 .form-field__label {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
-.form-field__error {
-  font-size: var(--font-size-xs);
-  color: var(--color-danger);
+.form-field__hint {
+  font-size: var(--font-size-12);
+  color: var(--color-text-secondary);
 }
 
-/* Notification badge */
-.notification-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  background-color: var(--color-danger);
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  min-width: 18px;
-  height: 18px;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  pointer-events: none;
+.form-field__error {
+  font-size: var(--font-size-12);
+  color: var(--color-danger-text);
 }
 
 /* Utility: visually hidden */
@@ -95,7 +91,7 @@ body {
   border-width: 0;
 }
 
-/* Reduced motion */
+/* Reduced motion: kill animation globally, tokens included */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

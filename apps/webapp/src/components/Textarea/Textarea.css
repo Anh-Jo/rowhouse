@@ -1,27 +1,42 @@
 .textarea-field__input {
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
   background-color: var(--color-surface);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-14);
   color: var(--color-text);
   resize: vertical;
-  min-height: 80px;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-height: 72px;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .textarea-field__input::placeholder {
-  color: var(--color-muted-light);
+  color: var(--color-text-muted);
+}
+
+.textarea-field__input:hover:not(:disabled):not(:focus) {
+  border-color: var(--color-border-strong);
 }
 
 .textarea-field__input:focus {
   outline: none;
-  border-color: var(--color-info);
-  box-shadow: 0 0 0 3px var(--color-info-light);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.textarea-field__input:disabled {
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 .textarea-field--error .textarea-field__input {
   border-color: var(--color-danger);
 }
 
+.textarea-field--error .textarea-field__input:focus {
+  box-shadow: 0 0 0 3px var(--color-focus-ring-danger);
+}

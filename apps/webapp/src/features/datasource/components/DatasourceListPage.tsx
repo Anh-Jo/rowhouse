@@ -5,6 +5,7 @@ import { Badge } from '@/components/Badge/Badge';
 import { Button } from '@/components/Button/Button';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { FormError } from '@/components/FormError/FormError';
+import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { listDatasources } from '@/api/datasources';
 import { datasourceKeys } from '@/api/query-keys';
 import { useWorkspaceId } from '@/hooks/useWorkspaceId';
@@ -36,17 +37,19 @@ function DatasourceListPage() {
 
   return (
     <div className="datasource-list">
-      <header className="datasource-list__header">
-        <h1 className="datasource-list__title">Datasources</h1>
-        {datasources.length > 0 && (
-          <Button
-            icon={<Plus size={16} />}
-            onClick={() => navigate(`/projects/${projectId}/datasources/new`)}
-          >
-            Connect a database
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title="Datasources"
+        actions={
+          datasources.length > 0 && (
+            <Button
+              icon={<Plus size={16} />}
+              onClick={() => navigate(`/projects/${projectId}/datasources/new`)}
+            >
+              Connect a database
+            </Button>
+          )
+        }
+      />
 
       {datasources.length === 0 ? (
         <div className="datasource-list__empty">

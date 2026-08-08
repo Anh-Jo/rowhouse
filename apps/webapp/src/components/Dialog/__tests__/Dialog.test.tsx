@@ -38,7 +38,7 @@ describe('Dialog', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Fermer' }));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
