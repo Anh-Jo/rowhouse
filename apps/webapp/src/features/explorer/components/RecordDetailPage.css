@@ -1,0 +1,171 @@
+/* Record detail: full-bleed family (the shell hands us the viewport and we
+   own the scrolling, like the grid) — but a record reads top to bottom, so
+   the field list holds a readable column while the linked-record grids take
+   the full width like every data table. */
+.record-detail {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.record-detail__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-6) var(--space-8);
+}
+
+.record-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-13);
+  text-decoration: none;
+}
+
+.record-detail__back:hover {
+  color: var(--color-text);
+}
+
+/* Table + PK identity are identifiers: data voice. */
+.record-detail__title {
+  font-family: var(--font-mono);
+}
+
+.record-detail__identity {
+  color: var(--color-text-secondary);
+}
+
+/* ── Field list: readable column, not the full viewport ── */
+.record-detail__fields {
+  max-width: 720px;
+}
+
+.record-fields {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-fields__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 3fr;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.record-fields__row:last-child {
+  border-bottom: none;
+}
+
+.record-fields__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: start;
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.record-fields__value {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Full values by design (the grid truncates, the record view never does);
+   pre-wrap keeps pretty-printed JSON readable. */
+.record-fields__data {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.record-fields__ref {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  color: var(--color-accent-text);
+  text-decoration: none;
+}
+
+.record-fields__ref:hover {
+  text-decoration: underline;
+}
+
+.record-fields__ref--unresolved {
+  color: var(--color-text-muted);
+}
+
+.record-fields__ref-identity {
+  color: var(--color-text-secondary);
+}
+
+/* ── Linked records: full-width cards, one per incoming relation ── */
+.record-related {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.record-related__heading {
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.record-related__title {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+}
+
+.record-related__via {
+  color: var(--color-text-secondary);
+}
+
+/* The compact grid scrolls sideways inside its card if it must. */
+.record-related__table {
+  overflow-x: auto;
+}
+
+.record-related__empty {
+  font-size: var(--font-size-13);
+  color: var(--color-text-muted);
+}
+
+.record-related__view-all {
+  display: inline-block;
+  margin-top: var(--space-3);
+  font-size: var(--font-size-13);
+  color: var(--color-accent-text);
+  text-decoration: none;
+}
+
+.record-related__view-all:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 767px) {
+  .record-detail__inner {
+    padding: var(--space-4) var(--space-4) var(--space-6);
+  }
+
+  /* Labels above values when the two-column grid would crush the value. */
+  .record-fields__row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}

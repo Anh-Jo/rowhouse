@@ -3,7 +3,7 @@ import { ApiParam } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { CurrentUser, CurrentWorkspace } from '@/auth/decorators';
 import { WorkspaceMemberGuard } from '@/auth/workspace.guard';
-import { ListRowsQueryDto, RowPageDto } from './explorer.dto';
+import { ListRowsQueryDto, RecordDetailDto, RowPageDto } from './explorer.dto';
 import { ExplorerService } from './explorer.service';
 
 /**
@@ -38,6 +38,26 @@ export class ExplorerController {
       tableId,
       actorId,
       query,
+    );
+  }
+
+  @Get('rows/:rowKey')
+  @ZodResponse({ status: 200, type: RecordDetailDto })
+  getRecord(
+    @CurrentWorkspace() workspaceId: string,
+    @Param('projectId') projectId: string,
+    @Param('datasourceId') datasourceId: string,
+    @Param('tableId') tableId: string,
+    @Param('rowKey') rowKey: string,
+    @CurrentUser() actorId: string,
+  ): Promise<RecordDetailDto> {
+    return this.explorerService.getRecord(
+      workspaceId,
+      projectId,
+      datasourceId,
+      tableId,
+      rowKey,
+      actorId,
     );
   }
 }

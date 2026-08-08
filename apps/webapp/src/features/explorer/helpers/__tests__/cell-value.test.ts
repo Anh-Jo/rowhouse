@@ -41,4 +41,16 @@ describe('describeCellValue', () => {
     expect(describeCellValue({ a: 1 })).toEqual({ kind: 'text', text: '{"a":1}' });
     expect(describeCellValue([1, 2])).toEqual({ kind: 'text', text: '[1,2]' });
   });
+
+  it('keeps the full text and pretty-prints JSON when truncation is off (record view)', () => {
+    const long = 'x'.repeat(200);
+    expect(describeCellValue(long, { truncate: false })).toEqual({
+      kind: 'text',
+      text: long,
+    });
+    expect(describeCellValue({ a: 1 }, { truncate: false })).toEqual({
+      kind: 'text',
+      text: '{\n  "a": 1\n}',
+    });
+  });
 });

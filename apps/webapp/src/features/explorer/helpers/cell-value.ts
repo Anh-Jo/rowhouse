@@ -5,6 +5,9 @@
  * - booleans → true / false
  * - ISO date-times → `YYYY-MM-DD HH:mm`, full value on title=
  * - long text / JSON → truncated with an ellipsis, full value on title=
+ *
+ * The record view passes `{ truncate: false }`: full text and pretty-printed
+ * JSON (a record page shows the whole value, the grid never does).
  */
 type CellDisplay = {
   kind: 'null' | 'boolean' | 'date' | 'text';
@@ -12,6 +15,11 @@ type CellDisplay = {
   text: string;
   /** Full value for `title=` when the shown text is shortened. */
   title?: string;
+};
+
+type CellValueOptions = {
+  /** Grid default; the record view turns it off to show everything. */
+  truncate?: boolean;
 };
 
 /** ISO 8601 date-time (what the backend serializes dates to). */
@@ -29,7 +37,11 @@ function truncate(text: string): CellDisplay {
   return { kind: 'text', text: `${text.slice(0, MAX_TEXT_LENGTH)}…`, title: text };
 }
 
-function describeCellValue(value: unknown): CellDisplay {
+function describeCellValue(
+  value: unknown,
+  options: CellValueOptions = {},
+): CellDisplay {
+  const shouldTruncate = options.truncate ?? true;
   if (value === null || value === undefined) {
     return { kind: 'null', text: 'NULL' };
   }
@@ -47,10 +59,13 @@ function describeCellValue(value: unknown): CellDisplay {
         title: value,
       };
     }
-    return truncate(value);
+    return shouldTruncate ? truncate(value) : { kind: 'text', text: value };
   }
-  // Objects/arrays (json & jsonb columns) — compact JSON, truncated.
-  return truncate(JSON.stringify(value));
+  // Objects/arrays (json & jsonb columns) — compact JSON truncated in the
+  // grid, pretty-printed in full for the record view.
+  return shouldTruncate
+    ? truncate(JSON.stringify(value))
+    : { kind: 'text', text: JSON.stringify(value, null, 2) };
 }
 
 export { describeCellValue };
