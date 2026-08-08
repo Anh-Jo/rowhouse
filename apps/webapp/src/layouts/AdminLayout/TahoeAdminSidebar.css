@@ -121,3 +121,66 @@
   background-color: var(--color-danger-light);
   color: var(--color-danger);
 }
+
+.tahoe-sidebar__user-info .tahoe-sidebar__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile (< 768px): the floating sidebar becomes a floating bottom bar —
+   icon-only navigation (labels hidden, aria-labels keep it accessible),
+   usable down to 375px (transverse decision D7: mobile-first). */
+@media (max-width: 767px) {
+  .tahoe-sidebar {
+    top: auto;
+    right: var(--sidebar-inset);
+    width: auto;
+    height: var(--bottomnav-height);
+    flex-direction: row;
+    align-items: center;
+    padding: 0 var(--space-3);
+    overflow-y: visible;
+    gap: var(--space-2);
+  }
+
+  .tahoe-sidebar__header {
+    display: none;
+  }
+
+  .tahoe-sidebar__nav {
+    flex-direction: row;
+    justify-content: space-evenly;
+    align-items: center;
+    overflow-y: visible;
+  }
+
+  .tahoe-sidebar__label,
+  .tahoe-sidebar__user-email {
+    display: none;
+  }
+
+  .tahoe-sidebar__link {
+    padding: var(--space-2);
+  }
+
+  .tahoe-sidebar__bottom {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .tahoe-sidebar__user {
+    padding: 0;
+  }
+
+  .tahoe-sidebar__logout {
+    width: auto;
+    padding: var(--space-2);
+  }
+}

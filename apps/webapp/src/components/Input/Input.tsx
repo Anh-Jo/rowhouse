@@ -1,7 +1,9 @@
-import type { InputHTMLAttributes, ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import './Input.css';
 
-type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+// ComponentProps (not InputHTMLAttributes) so `ref` is accepted as a regular
+// prop (React 19) — react-hook-form's `register` spread relies on it.
+type InputProps = ComponentProps<'input'> & {
   label?: string;
   error?: string;
   icon?: ReactNode;
