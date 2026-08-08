@@ -8,6 +8,7 @@ import { FormError } from '@/components/FormError/FormError';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { listDatasources } from '@/api/datasources';
 import { datasourceKeys } from '@/api/query-keys';
+import { formatDatasourceMethod } from '@/helpers/datasource-method';
 import { useWorkspaceId } from '@/hooks/useWorkspaceId';
 import './DatasourceListPage.css';
 
@@ -83,15 +84,24 @@ function DatasourceListPage() {
                     {datasource.name}
                   </span>
                   <span className="datasource-list__item-target">
-                    {datasource.host}:{datasource.port}/{datasource.database}
+                    {datasource.method === 'CLOUDSQL' && datasource.cloudSql
+                      ? `${datasource.cloudSql.instanceConnectionName}/${datasource.cloudSql.database}`
+                      : `${datasource.host}:${datasource.port}/${datasource.database}`}
                   </span>
                 </span>
                 <span className="datasource-list__item-badges">
-                  {datasource.sslMode === 'REQUIRE' ? (
-                    <Badge label="TLS" variant="success" />
-                  ) : (
-                    <Badge label="No TLS" variant="warning" />
-                  )}
+                  <Badge
+                    label={formatDatasourceMethod(datasource)}
+                    variant="info"
+                  />
+                  {/* TLS badges only make sense on DIRECT — the Cloud SQL
+                      connector is always mTLS, managed by Google. */}
+                  {datasource.method === 'DIRECT' &&
+                    (datasource.sslMode === 'REQUIRE' ? (
+                      <Badge label="TLS" variant="success" />
+                    ) : (
+                      <Badge label="No TLS" variant="warning" />
+                    ))}
                   <Badge label={datasource.type} variant="muted" />
                 </span>
               </Link>

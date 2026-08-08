@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type {
+  CloudSqlSnippetInput,
+  CloudSqlSnippetResult,
   ConnectionTestResult,
   CreateDatasourceInput,
   DatasourceDto,
@@ -11,33 +13,46 @@ import type {
 import type { SyncResultDto } from '@/api/schema';
 import { ConnectDatasourcePage } from '../ConnectDatasourcePage';
 
-const { createDatasource, testConnection, updateDatasource, syncSchema } =
-  vi.hoisted(() => ({
-    createDatasource:
-      vi.fn<
-        (
-          workspaceId: string,
-          projectId: string,
-          input: CreateDatasourceInput,
-        ) => Promise<DatasourceDto>
-      >(),
-    testConnection: vi.fn<() => Promise<ConnectionTestResult>>(),
-    updateDatasource:
-      vi.fn<
-        (
-          workspaceId: string,
-          projectId: string,
-          datasourceId: string,
-          input: UpdateDatasourceInput,
-        ) => Promise<DatasourceDto>
-      >(),
-    syncSchema: vi.fn<() => Promise<SyncResultDto>>(),
-  }));
+const {
+  createDatasource,
+  testConnection,
+  updateDatasource,
+  buildCloudSqlSnippet,
+  syncSchema,
+} = vi.hoisted(() => ({
+  createDatasource:
+    vi.fn<
+      (
+        workspaceId: string,
+        projectId: string,
+        input: CreateDatasourceInput,
+      ) => Promise<DatasourceDto>
+    >(),
+  testConnection: vi.fn<() => Promise<ConnectionTestResult>>(),
+  updateDatasource:
+    vi.fn<
+      (
+        workspaceId: string,
+        projectId: string,
+        datasourceId: string,
+        input: UpdateDatasourceInput,
+      ) => Promise<DatasourceDto>
+    >(),
+  buildCloudSqlSnippet:
+    vi.fn<
+      (
+        workspaceId: string,
+        input: CloudSqlSnippetInput,
+      ) => Promise<CloudSqlSnippetResult>
+    >(),
+  syncSchema: vi.fn<() => Promise<SyncResultDto>>(),
+}));
 
 vi.mock('@/api/datasources', () => ({
   createDatasource,
   testConnection,
   updateDatasource,
+  buildCloudSqlSnippet,
 }));
 vi.mock('@/api/schema', () => ({ syncSchema }));
 vi.mock('@/hooks/useWorkspaceId', () => ({
@@ -73,11 +88,36 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Read-write password'), 'rw-secret');
 }
 
+const SA_KEY_JSON = '{"type":"service_account","project_id":"my-project"}';
+
+/** Switches to the Cloud SQL method and fills its form (IAM auth default). */
+async function fillValidCloudSqlForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('radio', { name: /Google Cloud SQL/ }));
+  await user.type(screen.getByLabelText('Name'), 'Cloud prod');
+  await user.type(
+    screen.getByLabelText('Instance connection name'),
+    'my-project:europe-west1:prod-db',
+  );
+  await user.type(screen.getByLabelText('Database'), 'app');
+  // paste, not type: userEvent.type treats "{" as a key descriptor.
+  await user.click(screen.getByLabelText('Service account key JSON'));
+  await user.paste(SA_KEY_JSON);
+  await user.type(
+    screen.getByLabelText('Read-only username'),
+    'rowhouse-ro@my-project.iam',
+  );
+  await user.type(
+    screen.getByLabelText('Read-write username'),
+    'rowhouse-rw@my-project.iam',
+  );
+}
+
 describe('ConnectDatasourcePage', () => {
   beforeEach(() => {
     createDatasource.mockReset();
     testConnection.mockReset();
     updateDatasource.mockReset();
+    buildCloudSqlSnippet.mockReset();
     syncSchema.mockReset();
   });
 
@@ -139,8 +179,10 @@ describe('ConnectDatasourcePage', () => {
     expect(syncSchema).not.toHaveBeenCalled();
 
     // The datasource was created with the submitted values (secrets included,
-    // sslMode defaulting to REQUIRE) and the retry path reuses it.
+    // sslMode defaulting to REQUIRE, method always explicit) and the retry
+    // path reuses it.
     expect(createDatasource).toHaveBeenCalledExactlyOnceWith('ws-1', 'p-1', {
+      method: 'DIRECT',
       name: 'Production',
       host: 'db.example.com',
       port: 5432,
@@ -333,5 +375,202 @@ describe('ConnectDatasourcePage', () => {
     ).toBeInTheDocument();
     expect(updateDatasource).not.toHaveBeenCalled();
     expect(testConnection).toHaveBeenCalledTimes(1);
+  });
+
+  it('switches between the Direct and Cloud SQL forms with the method picker', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // Direct is the default: host/port form, no Cloud SQL fields.
+    expect(
+      screen.getByRole('radio', { name: /Direct connection/ }),
+    ).toBeChecked();
+    expect(screen.getByLabelText('Host')).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Instance connection name'),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: /Google Cloud SQL/ }));
+    expect(
+      screen.getByRole('radio', { name: /Google Cloud SQL/ }),
+    ).toBeChecked();
+    expect(screen.getByLabelText('Instance connection name')).toBeInTheDocument();
+    expect(screen.getByLabelText('Service account key JSON')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Host')).not.toBeInTheDocument();
+    // The IAM path stores no password at all — badge on the card, and the
+    // role password inputs are simply not there.
+    expect(screen.getByText('No stored password')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Read-only password')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: /Direct connection/ }));
+    expect(screen.getByLabelText('Host')).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Instance connection name'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('includes the pasted CA certificate in the Direct create payload', async () => {
+    createDatasource.mockResolvedValue(CREATED_DATASOURCE);
+    testConnection.mockResolvedValue({ ok: false, problems: ['nope'] });
+    const user = userEvent.setup();
+    renderPage();
+
+    await fillValidForm(user);
+    const pem =
+      '-----BEGIN CERTIFICATE-----\nMIIBbase64\n-----END CERTIFICATE-----';
+    await user.click(screen.getByLabelText('CA certificate (optional)'));
+    await user.paste(pem);
+    await user.click(screen.getByRole('button', { name: 'Connect & test' }));
+
+    await screen.findByRole('alert');
+    expect(createDatasource).toHaveBeenCalledExactlyOnceWith('ws-1', 'p-1', {
+      method: 'DIRECT',
+      name: 'Production',
+      host: 'db.example.com',
+      port: 5432,
+      database: 'app',
+      sslMode: 'REQUIRE',
+      caCert: pem,
+      readOnly: { username: 'rowhouse_ro', password: 'ro-secret' },
+      readWrite: { username: 'rowhouse_rw', password: 'rw-secret' },
+    });
+  });
+
+  it('creates a Cloud SQL datasource with the discriminated payload — no password fields under IAM', async () => {
+    createDatasource.mockResolvedValue(CREATED_DATASOURCE);
+    testConnection.mockResolvedValue({ ok: false, problems: ['nope'] });
+    const user = userEvent.setup();
+    renderPage();
+
+    await fillValidCloudSqlForm(user);
+    await user.click(screen.getByRole('button', { name: 'Connect & test' }));
+
+    await screen.findByRole('alert');
+    // IAM auth: the role objects carry no password property at all — the
+    // API rejects passwords on this path (ephemeral tokens, nothing stored).
+    expect(createDatasource).toHaveBeenCalledExactlyOnceWith('ws-1', 'p-1', {
+      method: 'CLOUDSQL',
+      name: 'Cloud prod',
+      instanceConnectionName: 'my-project:europe-west1:prod-db',
+      database: 'app',
+      authType: 'IAM',
+      saKeyJson: SA_KEY_JSON,
+      readOnly: { username: 'rowhouse-ro@my-project.iam' },
+      readWrite: { username: 'rowhouse-rw@my-project.iam' },
+    });
+  });
+
+  it('sends role passwords on Cloud SQL create when Built-in auth is chosen', async () => {
+    createDatasource.mockResolvedValue(CREATED_DATASOURCE);
+    testConnection.mockResolvedValue({ ok: false, problems: ['nope'] });
+    const user = userEvent.setup();
+    renderPage();
+
+    await fillValidCloudSqlForm(user);
+    await user.click(screen.getByRole('radio', { name: 'Built-in password' }));
+    await user.type(screen.getByLabelText('Read-only password'), 'ro-secret');
+    await user.type(screen.getByLabelText('Read-write password'), 'rw-secret');
+    await user.click(screen.getByRole('button', { name: 'Connect & test' }));
+
+    await screen.findByRole('alert');
+    expect(createDatasource).toHaveBeenCalledExactlyOnceWith('ws-1', 'p-1', {
+      method: 'CLOUDSQL',
+      name: 'Cloud prod',
+      instanceConnectionName: 'my-project:europe-west1:prod-db',
+      database: 'app',
+      authType: 'BUILT_IN',
+      saKeyJson: SA_KEY_JSON,
+      readOnly: {
+        username: 'rowhouse-ro@my-project.iam',
+        password: 'ro-secret',
+      },
+      readWrite: {
+        username: 'rowhouse-rw@my-project.iam',
+        password: 'rw-secret',
+      },
+    });
+  });
+
+  it('blanks the sealed service-account key after save, omits it from the PATCH when left blank, and locks the picker', async () => {
+    createDatasource.mockResolvedValue(CREATED_DATASOURCE);
+    testConnection.mockResolvedValue({ ok: false, problems: ['nope'] });
+    const user = userEvent.setup();
+    renderPage();
+
+    await fillValidCloudSqlForm(user);
+    await user.click(screen.getByRole('button', { name: 'Connect & test' }));
+    await screen.findByRole('alert');
+
+    // The key is write-only: after save the field is emptied, hints that the
+    // stored key is sealed, and a blank retry keeps it.
+    const saKey = screen.getByLabelText('Service account key JSON');
+    expect(saKey).toHaveValue('');
+    expect(saKey).toHaveAttribute('placeholder', 'Paste a new key to replace');
+    expect(
+      screen.getByText(/Service account key stored — sealed/),
+    ).toBeInTheDocument();
+
+    // The method cannot change once the datasource exists: dead radios plus
+    // a quiet hint, the PATCH would reject it anyway.
+    expect(screen.getByRole('radio', { name: /Direct connection/ })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: /Google Cloud SQL/ })).toBeDisabled();
+    expect(
+      screen.getByText(/The connection method is fixed after creation/),
+    ).toBeInTheDocument();
+
+    updateDatasource.mockResolvedValue(CREATED_DATASOURCE);
+    const database = screen.getByLabelText('Database');
+    await user.clear(database);
+    await user.type(database, 'app2');
+    await user.click(
+      screen.getByRole('button', { name: 'Retry connection test' }),
+    );
+
+    await screen.findByRole('alert');
+    // Only the changed database went out — no saKeyJson key at all (blank
+    // means "keep the sealed one"), no role objects, no method.
+    expect(updateDatasource).toHaveBeenCalledExactlyOnceWith(
+      'ws-1',
+      'p-1',
+      'ds-1',
+      { cloudSql: { database: 'app2' } },
+    );
+  });
+
+  it('fetches the Cloud SQL onboarding script when the collapsed snippet opens', async () => {
+    buildCloudSqlSnippet.mockResolvedValue({
+      script: 'gcloud iam service-accounts create rowhouse-ro',
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: /Google Cloud SQL/ }));
+    await user.type(
+      screen.getByLabelText('Instance connection name'),
+      'my-project:europe-west1:prod-db',
+    );
+    await user.type(screen.getByLabelText('Database'), 'app');
+
+    // jsdom does not reliably toggle <details> on summary clicks: open it
+    // directly and fire the toggle event the page listens for. (Setting
+    // `open` makes jsdom queue its own toggle too, hence not "exactly once".)
+    const details = screen
+      .getByText(/Need to set up the service accounts/)
+      .closest('details') as HTMLDetailsElement;
+    details.open = true;
+    fireEvent(details, new Event('toggle'));
+
+    await waitFor(() => expect(buildCloudSqlSnippet).toHaveBeenCalled());
+    expect(buildCloudSqlSnippet).toHaveBeenCalledWith('ws-1', {
+      instanceConnectionName: 'my-project:europe-west1:prod-db',
+      database: 'app',
+    });
+    expect(
+      await screen.findByText(
+        'gcloud iam service-accounts create rowhouse-ro',
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeInTheDocument();
   });
 });

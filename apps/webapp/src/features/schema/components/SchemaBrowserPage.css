@@ -6,6 +6,13 @@
   gap: var(--space-5);
 }
 
+/* Datasource name + connection-method badge on one line. */
+.schema-browser__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .schema-browser__empty {
   display: flex;
   flex-direction: column;
