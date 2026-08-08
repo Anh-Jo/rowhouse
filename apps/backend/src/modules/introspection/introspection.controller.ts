@@ -8,6 +8,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiParam } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { CurrentUser, CurrentWorkspace } from '@/auth/decorators';
 import { WorkspaceMemberGuard } from '@/auth/workspace.guard';
@@ -54,6 +55,9 @@ function toTableDto(table: TableWithColumns): SchemaTableDto {
 @Controller(
   'workspaces/:workspaceId/projects/:projectId/datasources/:datasourceId/schema',
 )
+@ApiParam({ name: 'workspaceId', type: 'string' })
+@ApiParam({ name: 'projectId', type: 'string' })
+@ApiParam({ name: 'datasourceId', type: 'string' })
 @UseGuards(WorkspaceMemberGuard)
 export class IntrospectionController {
   constructor(private readonly introspectionService: IntrospectionService) {}

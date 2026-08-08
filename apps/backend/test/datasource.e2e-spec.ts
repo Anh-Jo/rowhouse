@@ -281,6 +281,84 @@ describe('Datasources (e2e)', () => {
       .expect(404);
   });
 
+  it('lets a wrong password be corrected: PATCH re-seals and the next test uses it', async () => {
+    // Register with a wrong read-only password.
+    const created = await request(app.getHttpServer())
+      .post(`/workspaces/${workspaceA}/projects/${projectA}/datasources`)
+      .set('Cookie', cookieA)
+      .send({ ...VALID_BODY, name: 'Typo DB' })
+      .expect(201);
+    const datasourceId = (created.body as IdBody).id as string;
+
+    connections.refuseUsers.add('rowhouse_ro');
+    const failed = await request(app.getHttpServer())
+      .post(
+        `/workspaces/${workspaceA}/projects/${projectA}/datasources/${datasourceId}/test-connection`,
+      )
+      .set('Cookie', cookieA);
+    expect((failed.body as ConnectionTestBody).ok).toBe(false);
+    connections.refuseUsers.clear();
+
+    // Fix the password (and only it) through the update endpoint.
+    const patched = await request(app.getHttpServer())
+      .patch(
+        `/workspaces/${workspaceA}/projects/${projectA}/datasources/${datasourceId}`,
+      )
+      .set('Cookie', cookieA)
+      .send({ readOnly: { username: 'rowhouse_ro', password: 'fixed-pw' } });
+    expect(patched.status).toBe(200);
+    expect(JSON.stringify(patched.body)).not.toContain('fixed-pw');
+
+    connections.attempts = [];
+    const retried = await request(app.getHttpServer())
+      .post(
+        `/workspaces/${workspaceA}/projects/${projectA}/datasources/${datasourceId}/test-connection`,
+      )
+      .set('Cookie', cookieA);
+    expect((retried.body as ConnectionTestBody).ok).toBe(true);
+
+    const byUser = Object.fromEntries(
+      connections.attempts.map((attempt) => [attempt.user, attempt.password]),
+    );
+    // The read-only role now probes with the corrected password; the
+    // untouched read-write credential still unseals to its original one.
+    expect(byUser.rowhouse_ro).toBe('fixed-pw');
+    expect(byUser.rowhouse_rw).toBe('rw-secret-pw');
+
+    // Cross-tenant PATCH 404s like everything else.
+    await request(app.getHttpServer())
+      .patch(
+        `/workspaces/${workspaceA}/projects/${projectA}/datasources/${datasourceId}`,
+      )
+      .set('Cookie', cookieB)
+      .send({ host: 'evil' })
+      .expect(404);
+  });
+
+  it('serves the least-privilege role snippet, workspace-guarded', async () => {
+    const response = await request(app.getHttpServer())
+      .post(`/workspaces/${workspaceA}/datasource-role-snippet`)
+      .set('Cookie', cookieA)
+      .send({ database: 'appdb' });
+
+    expect(response.status).toBe(200);
+    const sql = (response.body as { sql: string }).sql;
+    expect(sql).toContain('CREATE ROLE rowhouse_ro LOGIN');
+    expect(sql).toContain('GRANT CONNECT ON DATABASE appdb');
+
+    await request(app.getHttpServer())
+      .post(`/workspaces/${workspaceA}/datasource-role-snippet`)
+      .set('Cookie', cookieB)
+      .send({ database: 'appdb' })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .post(`/workspaces/${workspaceA}/datasource-role-snippet`)
+      .set('Cookie', cookieA)
+      .send({ database: "app'; DROP TABLE x; --" })
+      .expect(400);
+  });
+
   it('rejects an incomplete body at the Zod boundary (400)', async () => {
     const missingRole: Partial<typeof VALID_BODY> = { ...VALID_BODY };
     delete missingRole.readWrite;
