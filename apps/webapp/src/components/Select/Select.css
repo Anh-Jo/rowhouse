@@ -21,8 +21,24 @@
   box-shadow: 0 0 0 3px var(--color-info-light);
 }
 
+/* Placeholder-grey only when genuinely empty: Radix sets [data-placeholder]
+   on the trigger only while no value is selected. */
 .select-field__trigger[data-placeholder] {
   color: var(--color-muted-light);
+}
+
+/* A chosen value must stay readable even when the control is disabled (own
+   prop or an ancestor <fieldset disabled> Radix cannot see): browsers paint
+   disabled button text GrayText — on WebKit via text-fill-color, which plain
+   `color` cannot override — making the selected value look like the
+   placeholder. Pin it to the normal text token instead. */
+.select-field__trigger:disabled {
+  cursor: not-allowed;
+}
+
+.select-field__trigger:disabled:not([data-placeholder]) {
+  color: var(--color-text);
+  -webkit-text-fill-color: var(--color-text);
 }
 
 .select-field__chevron {

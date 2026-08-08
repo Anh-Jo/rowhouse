@@ -28,6 +28,42 @@ const OnboardingPage = lazy(() =>
   })),
 );
 
+const HomeRedirect = lazy(() =>
+  import("@/features/datasource/components/HomeRedirect").then((m) => ({
+    default: m.HomeRedirect,
+  })),
+);
+
+const DatasourceListPage = lazy(() =>
+  import("@/features/datasource/components/DatasourceListPage").then((m) => ({
+    default: m.DatasourceListPage,
+  })),
+);
+
+const ConnectDatasourcePage = lazy(() =>
+  import("@/features/datasource/components/ConnectDatasourcePage").then(
+    (m) => ({ default: m.ConnectDatasourcePage }),
+  ),
+);
+
+const SchemaBrowserPage = lazy(() =>
+  import("@/features/schema/components/SchemaBrowserPage").then((m) => ({
+    default: m.SchemaBrowserPage,
+  })),
+);
+
+const TableDetailPage = lazy(() =>
+  import("@/features/schema/components/TableDetailPage").then((m) => ({
+    default: m.TableDetailPage,
+  })),
+);
+
+const AuditPage = lazy(() =>
+  import("@/features/audit/components/AuditPage").then((m) => ({
+    default: m.AuditPage,
+  })),
+);
+
 export const router = createBrowserRouter([
   // Public routes: the only pages reachable without a session.
   {
@@ -71,7 +107,27 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Placeholder name="Home" /> },
+      // Lands on the first project's datasource list (single project in P0).
+      { index: true, element: <HomeRedirect /> },
+      {
+        path: "projects/:projectId/datasources",
+        element: <DatasourceListPage />,
+      },
+      {
+        path: "projects/:projectId/datasources/new",
+        element: <ConnectDatasourcePage />,
+      },
+      {
+        path: "projects/:projectId/datasources/:datasourceId/schema",
+        element: <SchemaBrowserPage />,
+      },
+      // Sibling of the browser (not nested): list + detail are separate
+      // screens on mobile (decision D7), each with its own route.
+      {
+        path: "projects/:projectId/datasources/:datasourceId/schema/tables/:tableId",
+        element: <TableDetailPage />,
+      },
+      { path: "audit", element: <AuditPage /> },
       { path: "settings", element: <Placeholder name="Settings" /> },
     ],
   },

@@ -22,4 +22,5 @@ function EmptyState({ icon, message, description, className }: EmptyStateProps) 
 }
 
 export { EmptyState };
+/** Public component API — consumers type their props with this. @public */
 export type { EmptyStateProps };
