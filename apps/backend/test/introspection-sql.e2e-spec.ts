@@ -8,10 +8,11 @@ import type { TargetConnection } from '@/target-db/target-connection.factory';
  * Postgres. Every other suite stubs the connection, so the SQL itself — and
  * above all the privileges it needs — goes unchecked there.
  *
- * That gap is exactly how the "no table has a primary key" bug shipped:
- * `information_schema`'s constraint views are privilege-filtered, and
- * Rowhouse always reads as the READ_ONLY role (SELECT only). The read-only
- * role is therefore the point of this file, not an extra case.
+ * That gap is exactly how the "no table has a primary key" and "no table has
+ * relations" bugs shipped: `information_schema`'s constraint views are
+ * privilege-filtered, and Rowhouse always reads as the READ_ONLY role
+ * (SELECT only). The read-only role is therefore the point of this file,
+ * not an extra case.
  */
 
 /** Mirrors the shapes the sample target database uses (infra/sample-db). */
@@ -31,6 +32,15 @@ const SCHEMA_SQL = `
     product_id bigint NOT NULL,
     quantity   integer NOT NULL,
     PRIMARY KEY (order_id, product_id)
+  );
+  -- Composite foreign key: each column must point at the column facing it,
+  -- not at every column of the referenced key.
+  CREATE TABLE shipments (
+    id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_id   bigint NOT NULL,
+    product_id bigint NOT NULL,
+    FOREIGN KEY (order_id, product_id)
+      REFERENCES order_items (order_id, product_id)
   );
   -- No primary key at all: the snapshot must report that honestly.
   CREATE TABLE audit_trail (
@@ -68,6 +78,23 @@ function pkColumnsOf(schema: IntrospectedSchema, tableName: string): string[] {
   );
 }
 
+/** `column -> referenced table.column` for every FK column of a table. */
+function referencesOf(
+  schema: IntrospectedSchema,
+  tableName: string,
+): Record<string, string> {
+  const columns =
+    schema.tables.find((table) => table.name === tableName)?.columns ?? [];
+  return Object.fromEntries(
+    columns
+      .filter((column) => column.references !== null)
+      .map((column) => [
+        column.name,
+        `${column.references?.table}.${column.references?.column}`,
+      ]),
+  );
+}
+
 describe('Postgres introspection SQL (real database)', () => {
   let pg: PGlite;
   let datasource: PostgresExternalDatasource;
@@ -93,14 +120,11 @@ describe('Postgres introspection SQL (real database)', () => {
     }
   }
 
-  it('sees the same primary keys as the READ_ONLY role and as the owner', async () => {
+  it('sees the exact same schema as the READ_ONLY role and as the owner', async () => {
     const asOwner = await datasource.introspect(asTargetConnection(pg));
     const asReadOnly = await introspectAsReadOnlyRole();
 
-    const tableNames = asOwner.tables.map((table) => table.name);
-    for (const name of tableNames) {
-      expect(pkColumnsOf(asReadOnly, name)).toEqual(pkColumnsOf(asOwner, name));
-    }
+    expect(asReadOnly).toEqual(asOwner);
   });
 
   it('marks single and composite primary keys as the READ_ONLY role', async () => {
@@ -113,6 +137,28 @@ describe('Postgres introspection SQL (real database)', () => {
       'order_id',
       'product_id',
     ]);
+  });
+
+  it('resolves foreign keys as the READ_ONLY role', async () => {
+    const schema = await introspectAsReadOnlyRole();
+
+    expect(referencesOf(schema, 'orders')).toEqual({
+      customer_id: 'customers.id',
+    });
+    expect(referencesOf(schema, 'order_items')).toEqual({
+      order_id: 'orders.id',
+    });
+    expect(referencesOf(schema, 'customers')).toEqual({});
+  });
+
+  it('pairs each column of a composite foreign key with its own target', async () => {
+    const schema = await introspectAsReadOnlyRole();
+
+    // The cross product would give order_id -> product_id (or the reverse).
+    expect(referencesOf(schema, 'shipments')).toEqual({
+      order_id: 'order_items.order_id',
+      product_id: 'order_items.product_id',
+    });
   });
 
   it('reports a genuinely key-less table as key-less', async () => {
@@ -142,6 +188,7 @@ describe('Postgres introspection SQL (real database)', () => {
       'customers',
       'order_items',
       'orders',
+      'shipments',
     ]);
   });
 });

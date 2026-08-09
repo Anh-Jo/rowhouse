@@ -193,6 +193,7 @@ function DataExplorerPage() {
               projectId={projectId}
               datasourceId={datasourceId}
               table={selectedTable}
+              tables={tables}
             />
           ) : tableId ? (
             <EmptyState

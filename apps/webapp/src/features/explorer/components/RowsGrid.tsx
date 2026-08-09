@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ArrowUpDown, Inbox, Search, X } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CornerUpRight,
+  Inbox,
+  Search,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/Badge/Badge';
 import { Button } from '@/components/Button/Button';
 import { Callout } from '@/components/Callout/Callout';
@@ -48,13 +56,83 @@ function CellValue({ value }: { value: unknown }) {
 }
 
 /**
+ * The relation an FK column carries, already resolved against the snapshot:
+ * `tableId` is null when the referenced table is not in it (another schema,
+ * or a sync that has not caught up) — the relation is then shown, not linked.
+ */
+type ColumnRelation = {
+  tableId: string | null;
+  tableName: string;
+  columnName: string;
+};
+
+/** Resolves a column's foreign key against the snapshot, null if it has none. */
+function resolveRelation(
+  column: SchemaTableDto['columns'][number],
+  tables: SchemaTableDto[],
+): ColumnRelation | null {
+  if (!column.refTable || !column.refColumn) {
+    return null;
+  }
+  return {
+    tableId: tables.find((table) => table.name === column.refTable)?.id ?? null,
+    tableName: column.refTable,
+    columnName: column.refColumn,
+  };
+}
+
+/**
+ * The "→ orders" chip under an FK column header: the relation is part of the
+ * column's identity, so it belongs in the grid and not only in the schema
+ * browser. Clicking it jumps to the referenced table.
+ */
+function RelationChip({
+  relation,
+  basePath,
+}: {
+  relation: ColumnRelation;
+  basePath: string;
+}) {
+  const label = `${relation.tableName}.${relation.columnName}`;
+  const content = (
+    <>
+      <CornerUpRight size={12} aria-hidden />
+      {relation.tableName}
+    </>
+  );
+  if (relation.tableId === null) {
+    return (
+      <span
+        className="rows-grid__relation rows-grid__relation--unresolved"
+        title={`References ${label} — not in this schema snapshot`}
+      >
+        {content}
+      </span>
+    );
+  }
+  return (
+    <Link
+      className="rows-grid__relation"
+      to={`${basePath}/data/tables/${relation.tableId}`}
+      title={`References ${label}`}
+      aria-label={`References ${label}`}
+    >
+      {content}
+    </Link>
+  );
+}
+
+/**
  * Column header: the name is the sort control (click cycles
- * none → asc → desc → none, server-side), PK / PII badged, the filter
- * popover last. The sort arrow only shows for the active sort column —
- * headers stay quiet otherwise.
+ * none → asc → desc → none, server-side), PK / PII badged, foreign keys
+ * carrying a link to the table they point at, the filter popover last. The
+ * sort arrow only shows for the active sort column — headers stay quiet
+ * otherwise.
  */
 function ColumnHeader({
   column,
+  relation,
+  basePath,
   sort,
   onSort,
   activeFilterCount,
@@ -62,6 +140,8 @@ function ColumnHeader({
   onClearColumn,
 }: {
   column: SchemaTableDto['columns'][number];
+  relation: ColumnRelation | null;
+  basePath: string;
   sort: RowSort | null;
   onSort: () => void;
   activeFilterCount: number;
@@ -89,6 +169,7 @@ function ColumnHeader({
       </button>
       {column.isPrimaryKey && <Badge label="PK" variant="info" />}
       {column.isPii && <Badge label="PII" variant="pii" />}
+      {relation && <RelationChip relation={relation} basePath={basePath} />}
       <ColumnFilterPopover
         column={column}
         activeCount={activeFilterCount}
@@ -128,11 +209,14 @@ function RowsGrid({
   projectId,
   datasourceId,
   table,
+  tables,
 }: {
   workspaceId: string;
   projectId: string;
   datasourceId: string;
   table: SchemaTableDto;
+  /** Every snapshot table — resolves the FK targets of this table's columns. */
+  tables: SchemaTableDto[];
 }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -239,6 +323,7 @@ function RowsGrid({
     refinements.sort !== null ||
     refinements.search !== '';
 
+  const basePath = `/projects/${projectId}/datasources/${datasourceId}`;
   const orderedColumns = [...table.columns].sort(
     (a, b) => a.position - b.position,
   );
@@ -247,6 +332,8 @@ function RowsGrid({
     header: (
       <ColumnHeader
         column={column}
+        relation={resolveRelation(column, tables)}
+        basePath={basePath}
         sort={refinements.sort}
         onSort={() => cycleSort(column.name)}
         activeFilterCount={
@@ -275,7 +362,7 @@ function RowsGrid({
   const openRecord = (row: GridRow) => {
     if (row.rowKey !== null) {
       navigate(
-        `/projects/${projectId}/datasources/${datasourceId}/data/tables/${table.id}/records/${encodeURIComponent(row.rowKey)}`,
+        `${basePath}/data/tables/${table.id}/records/${encodeURIComponent(row.rowKey)}`,
       );
     }
   };

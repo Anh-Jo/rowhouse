@@ -59,6 +59,43 @@ const SCHEMA: DatasourceSchemaDto = {
   ],
 };
 
+/**
+ * `orders` with two foreign keys: one onto a table of the snapshot, one onto
+ * a table absent from it. Kept out of the shared fixture — extra columns mean
+ * extra NULL cells, which the value-rendering tests count.
+ */
+function withForeignKeys(schema: DatasourceSchemaDto): DatasourceSchemaDto {
+  return {
+    ...schema,
+    tables: schema.tables.map((table) =>
+      table.id === 't-orders'
+        ? {
+            ...table,
+            columns: [
+              ...table.columns,
+              column({
+                id: 'c-log',
+                name: 'log_id',
+                position: 5,
+                dataType: 'integer',
+                refTable: 'logs',
+                refColumn: 'id',
+              }),
+              column({
+                id: 'c-ghost',
+                name: 'ghost_id',
+                position: 6,
+                dataType: 'integer',
+                refTable: 'ghosts',
+                refColumn: 'id',
+              }),
+            ],
+          }
+        : table,
+    ),
+  };
+}
+
 const ORDERS_PAGE_1: RowPageDto = {
   items: [
     {
@@ -159,6 +196,28 @@ describe('DataExplorerPage', () => {
     expect(listTableRows).toHaveBeenCalledWith('ws-1', 'p-1', 'ds-1', 't-orders', {
       cursor: undefined,
     });
+  });
+
+  it('shows a foreign key on the column header, linking to the referenced table', async () => {
+    getDatasourceSchema.mockResolvedValue(withForeignKeys(SCHEMA));
+    renderPage(`${BASE}/tables/t-orders`);
+
+    const fkHeader = await screen.findByRole('columnheader', {
+      name: /^log_id/,
+    });
+    const link = within(fkHeader).getByRole('link', {
+      name: 'References logs.id',
+    });
+    expect(link).toHaveAttribute(
+      'href',
+      '/projects/p-1/datasources/ds-1/data/tables/t-logs',
+    );
+
+    // The relation is still surfaced when its target is not in the snapshot,
+    // but there is nowhere to navigate to.
+    const ghostHeader = screen.getByRole('columnheader', { name: /^ghost_id/ });
+    expect(within(ghostHeader).getByText('ghosts')).toBeInTheDocument();
+    expect(within(ghostHeader).queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('loads the next page with the cursor and appends the rows', async () => {
