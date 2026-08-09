@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/Button/Button';
 import { FormError } from '@/components/FormError/FormError';
 import { Input } from '@/components/Input/Input';
 import { authClient } from '@/api/auth-client';
 import { createProject } from '@/api/projects';
+import { projectKeys, workspaceKeys } from '@/api/query-keys';
+import { useWorkspaceId } from '@/hooks/useWorkspaceId';
 import { slugify } from '../helpers/slug';
 import './OnboardingPage.css';
 
@@ -35,14 +38,25 @@ const validateProjectName = validateRequiredName('Project name');
 /**
  * First-run flow: create a workspace (better-auth organization), then the
  * first project inside it. Linear two-step wizard, mobile-first.
+ *
+ * The current step is derived from the workspaces the user actually has, not
+ * only from what this component created: landing here with a workspace already
+ * in place resumes at the project step instead of offering a second workspace.
  */
 function OnboardingPage() {
   const navigate = useNavigate();
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { workspaceId: existingWorkspaceId, isPending: isWorkspacePending } =
+    useWorkspaceId();
+  const [createdWorkspaceId, setCreatedWorkspaceId] = useState<string | null>(
+    null,
+  );
   const [apiError, setApiError] = useState<string | null>(null);
 
   const workspaceForm = useForm<WorkspaceFormValues>();
   const projectForm = useForm<ProjectFormValues>();
+
+  const workspaceId = createdWorkspaceId ?? existingWorkspaceId;
 
   const onCreateWorkspace = async (values: WorkspaceFormValues) => {
     setApiError(null);
@@ -59,7 +73,11 @@ function OnboardingPage() {
     }
     // Make the fresh workspace the active organization for this session.
     await authClient.organization.setActive({ organizationId: data.id });
-    setWorkspaceId(data.id);
+    // The app shell's guard reads this list to decide whether onboarding is
+    // still needed — refresh it now so the redirect at the end of the flow
+    // lands on the app instead of bouncing straight back here.
+    await queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
+    setCreatedWorkspaceId(data.id);
   };
 
   const onCreateProject = async (values: ProjectFormValues) => {
@@ -77,8 +95,19 @@ function OnboardingPage() {
       );
       return;
     }
+    // Same reason as above: the home route picks the first project out of this
+    // list to decide where to land.
+    await queryClient.invalidateQueries({
+      queryKey: projectKeys.list(workspaceId),
+    });
     navigate('/', { replace: true });
   };
+
+  // Resolve the existing workspaces before painting: otherwise a user who only
+  // misses the project step sees the workspace form flash by.
+  if (isWorkspacePending) {
+    return null;
+  }
 
   const step: 1 | 2 = workspaceId === null ? 1 : 2;
 

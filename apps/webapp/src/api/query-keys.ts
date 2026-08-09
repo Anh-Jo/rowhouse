@@ -3,6 +3,11 @@
  * fetch depends on, so invalidating a datasource's schema never clears
  * another's cache.
  */
+export const workspaceKeys = {
+  // No id in the key: the list is scoped to the session by the auth cookie.
+  list: () => ['workspaces'] as const,
+};
+
 export const projectKeys = {
   list: (workspaceId: string) => ['projects', workspaceId] as const,
 };
@@ -15,8 +20,11 @@ export const datasourceKeys = {
 };
 
 export const schemaKeys = {
-  byDatasource: (workspaceId: string, projectId: string, datasourceId: string) =>
-    ['schema', workspaceId, projectId, datasourceId] as const,
+  byDatasource: (
+    workspaceId: string,
+    projectId: string,
+    datasourceId: string,
+  ) => ['schema', workspaceId, projectId, datasourceId] as const,
 };
 
 export const explorerKeys = {
