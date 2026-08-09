@@ -17,6 +17,13 @@
   margin-bottom: var(--space-2);
 }
 
+/* Line this header's bottom border up with the sidebar header's divider.
+   The sidebar header is taller by 7px (its 32px avatar + 16px bottom padding
+   outrun the datasource title), so pad the title's box to make up the gap. */
+.data-explorer__header .page-header__title {
+  padding-bottom: 7px;
+}
+
 /* The switcher tabs sit flush on the header's bottom border. */
 .data-explorer__header .tab-filter {
   box-shadow: none;
