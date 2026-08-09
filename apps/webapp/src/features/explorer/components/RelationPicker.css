@@ -1,0 +1,94 @@
+/* Relation picker: the drawer body is already a scrolling column — these
+   rules only shape the search box and the pickable rows inside it. */
+.relation-picker__search {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.relation-picker__search-clear {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.relation-picker__search-clear:hover {
+  background-color: var(--color-hover-muted);
+  color: var(--color-text);
+}
+
+.relation-picker__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.relation-picker__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+/* One candidate row: human identity first (that is what people recognise),
+   the stored key second (that is what gets written). */
+.relation-picker__row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.relation-picker__row:hover:not(:disabled) {
+  background-color: var(--color-hover-muted);
+}
+
+.relation-picker__row:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.relation-picker__row--current {
+  border-color: var(--color-border);
+  background-color: var(--color-surface-sunken);
+}
+
+.relation-picker__identity {
+  font-size: var(--font-size-13);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.relation-picker__value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-12);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.relation-picker__current-icon {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-3);
+  color: var(--color-accent-text);
+}

@@ -1,0 +1,45 @@
+/* Foreign-key editor row: the value reads like data (mono, quiet) because it
+   is displayed, never typed — the actions sit next to it. */
+.relation-field__control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
+  min-height: var(--control-height-lg);
+}
+
+.relation-field__value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.relation-field__value--muted,
+.relation-field__null {
+  color: var(--color-text-muted);
+}
+
+.relation-field__key {
+  font-variant-numeric: tabular-nums;
+}
+
+.relation-field__identity {
+  color: var(--color-text-secondary);
+}
+
+.relation-field__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}

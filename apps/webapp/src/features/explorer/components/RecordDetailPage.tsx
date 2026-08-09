@@ -34,12 +34,14 @@ import {
   describePkIdentity,
   describeRowIdentity,
 } from '../helpers/row-identity';
+import { resolveRelation } from '../helpers/column-relation';
 import {
   fieldKindFor,
   numberStepFor,
   toApiValue,
   toFieldValue,
 } from '../helpers/column-input';
+import { RelationField } from './RelationField';
 import './RecordDetailPage.css';
 
 /** Record path for a row of a table — one place builds it for every link. */
@@ -244,19 +246,25 @@ function RelatedPanel({
  * Inline single-record editor. Each non-PK column renders the control that fits
  * its type — a date picker for a date, a dropdown for a boolean or enum, a
  * textarea for JSON, a numeric or text field otherwise — while the PK stays
- * read-only (identity is not editable here). A live diff of the pending changes
- * sits in the footer; Save sends only the changed columns as one governed,
- * audited write. Server errors (403 without the capability, 409 multi-row, 404
- * gone) surface inline — the button guard is UX only, the server is authority.
+ * read-only (identity is not editable here). A foreign key gets none of those
+ * controls: it is picked from the referenced table in a drawer (see
+ * `RelationField`), because a relation is a row that must exist, not a value to
+ * type. A live diff of the pending changes sits in the footer; Save sends only
+ * the changed columns as one governed, audited write. Server errors (403
+ * without the capability, 409 multi-row, 404 gone) surface inline — the button
+ * guard is UX only, the server is authority.
  */
 function EditRecordForm({
   table,
+  tables,
   record,
   ids,
   onCancel,
   onSaved,
 }: {
   table: SchemaTableDto;
+  /** Every snapshot table — resolves the FK targets the picker browses. */
+  tables: SchemaTableDto[];
   record: RecordDetailDto;
   ids: {
     workspaceId: string;
@@ -379,6 +387,46 @@ function EditRecordForm({
           ]
             .filter(Boolean)
             .join(' · ');
+
+          // A foreign key is selected, never typed: the picker replaces the
+          // type-derived control entirely, whatever the column's data type.
+          const relation = resolveRelation(column, tables);
+          if (relation) {
+            const targetTable = tables.find(
+              (candidate) => candidate.id === relation.tableId,
+            );
+            const reference = record.references.find(
+              (candidate) => candidate.column === column.name,
+            );
+            const identity =
+              targetTable && reference?.row
+                ? describeRowIdentity(targetTable, reference.row.values)
+                : undefined;
+            return (
+              <Controller
+                key={column.id}
+                name={column.name}
+                control={control}
+                render={({ field: rhf }) => (
+                  <RelationField
+                    column={column}
+                    relation={relation}
+                    targetTable={targetTable}
+                    hint={hint}
+                    initialIdentity={identity}
+                    value={rhf.value ?? ''}
+                    onChange={rhf.onChange}
+                    ids={{
+                      workspaceId: ids.workspaceId,
+                      projectId: ids.projectId,
+                      datasourceId: ids.datasourceId,
+                    }}
+                  />
+                )}
+              />
+            );
+          }
+
           return (
             <Controller
               key={column.id}
@@ -606,6 +654,7 @@ function RecordDetailPage() {
           {isEditing ? (
             <EditRecordForm
               table={table}
+              tables={tables}
               record={record}
               ids={{
                 workspaceId: workspaceId ?? '',

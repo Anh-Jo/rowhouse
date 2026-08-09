@@ -63,7 +63,13 @@ with write capability may edit — full matrix lands in B).
   ERROR; READ_ONLY role and non-writer 404/403; cross-tenant 404.
 - **webapp**: inline field editing on the record page (react-hook-form),
   a before/after diff preview, react-query mutation with invalidation; the
-  edit affordance is absent for read-only members.
+  edit affordance is absent for read-only members. **A foreign-key column is
+  selected, never typed** (D15): its control is a read-only value plus a
+  drawer that browses the referenced table through the governed rows endpoint
+  (server-side search, cursor paging) and writes back the referenced column's
+  value; clearing to NULL is offered only where the column is nullable, and a
+  relation whose target table is missing from the snapshot stays read-only
+  instead of degrading to a text box.
 
 ### Slice B — RBAC capabilities (`feat/safe-edit-rbac`)
 
@@ -122,12 +128,23 @@ metadata; nothing enforces masking on it until that feature ships.
   duties (requester ≠ approver) and the single-row transaction guard are the
   two write-side guardrails; both live in the execution path (D2), never in
   UI or prompt.
+- **D15 — A relation is selected, never typed.** Any editor writing a
+  foreign-key column offers a picker over the referenced table (the drawer in
+  slice A, and whatever surface comes later — bulk edit, the agent's own
+  forms), never a free-text input. A hand-typed key is how records end up
+  pointing at rows that do not exist; the referential guardrail belongs in the
+  interaction, next to the server-side one. Where no picker is possible (the
+  referenced table is not in the schema snapshot) the field is read-only —
+  degrading to free input would defeat the rule exactly when it matters.
 
 ## Manual validation
 
 Against the seeded sample-db, as an admin: open a `customers` record, edit a
 field, see the diff, apply — the grid reflects it and the audit view shows one
-WRITE on the READ_WRITE role. As a member (read-only): the edit affordance is
+WRITE on the READ_WRITE role. On an `orders` record, the `customer_id` field
+offers no text box: "Change" opens the customers drawer, searching narrows it
+server-side, and picking a row stages `customer_id → <that row's id>` in the
+diff before apply. As a member (read-only): the edit affordance is
 absent and the PATCH endpoint 403s. With approvals enabled on the datasource,
 edit a `customers` record as an admin: the change lands in the approvals inbox
 as PENDING; a second admin approves it, it applies, and the WRITE event carries

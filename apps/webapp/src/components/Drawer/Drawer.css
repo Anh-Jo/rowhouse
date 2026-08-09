@@ -1,0 +1,119 @@
+/* Side sheet: same overlay stack as the dialog (a drawer IS a modal), but
+   pinned to the right edge and full height so its body can scroll a list. */
+.drawer__overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--color-overlay);
+  z-index: var(--z-overlay);
+  animation: drawer-overlay-show var(--duration-base) var(--ease-out);
+}
+
+.drawer__content {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(30rem, 100vw);
+  background-color: var(--color-surface-raised);
+  border-left: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-overlay);
+  z-index: var(--z-dialog);
+  animation: drawer-content-show var(--duration-base) var(--ease-out);
+  will-change: transform;
+}
+
+.drawer__header {
+  position: relative;
+  flex-shrink: 0;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.drawer__title {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  padding-right: var(--space-8);
+}
+
+.drawer__description {
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+  padding-right: var(--space-8);
+}
+
+.drawer__close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.drawer__close:hover {
+  background-color: var(--color-hover-muted);
+  color: var(--color-text);
+}
+
+/* The one scrolling region — the header and footer stay put. */
+.drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.drawer__footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+@keyframes drawer-overlay-show {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes drawer-content-show {
+  from {
+    transform: translateX(2%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* A side panel on a phone is just a cramped dialog — take the screen. */
+@media (max-width: 640px) {
+  .drawer__content {
+    width: 100vw;
+    border-left: none;
+  }
+}

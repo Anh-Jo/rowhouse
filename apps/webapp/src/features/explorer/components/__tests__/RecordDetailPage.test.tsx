@@ -4,21 +4,31 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiError } from '@/api/errors';
-import type { RecordDetailDto } from '@/api/explorer';
+import type { RecordDetailDto, RowPageDto } from '@/api/explorer';
 import type { DatasourceSchemaDto, SchemaColumnDto } from '@/api/schema';
 import { RecordDetailPage } from '../RecordDetailPage';
 
-const { getDatasourceSchema, getTableRecord, updateTableRecord, roleHolder } =
-  vi.hoisted(() => ({
-    getDatasourceSchema: vi.fn<() => Promise<DatasourceSchemaDto>>(),
-    getTableRecord: vi.fn<(...args: unknown[]) => Promise<RecordDetailDto>>(),
-    updateTableRecord: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-    // Mutable so a test can pick the caller's role before rendering.
-    roleHolder: { role: 'member' as string | null },
-  }));
+const {
+  getDatasourceSchema,
+  getTableRecord,
+  updateTableRecord,
+  listTableRows,
+  roleHolder,
+} = vi.hoisted(() => ({
+  getDatasourceSchema: vi.fn<() => Promise<DatasourceSchemaDto>>(),
+  getTableRecord: vi.fn<(...args: unknown[]) => Promise<RecordDetailDto>>(),
+  updateTableRecord: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  listTableRows: vi.fn<(...args: unknown[]) => Promise<RowPageDto>>(),
+  // Mutable so a test can pick the caller's role before rendering.
+  roleHolder: { role: 'member' as string | null },
+}));
 
 vi.mock('@/api/schema', () => ({ getDatasourceSchema }));
-vi.mock('@/api/explorer', () => ({ getTableRecord, updateTableRecord }));
+vi.mock('@/api/explorer', () => ({
+  getTableRecord,
+  updateTableRecord,
+  listTableRows,
+}));
 vi.mock('@/hooks/useWorkspaceId', () => ({
   useWorkspaceId: () => ({ workspaceId: 'ws-1', isPending: false }),
 }));
@@ -191,6 +201,25 @@ const ITEM_RECORD: RecordDetailDto = {
   referencedBy: [],
 };
 
+/** The customers page the relation picker browses, honouring `search`. */
+const CUSTOMER_ROWS: RowPageDto['items'] = [
+  { key: 'k-cust-42', values: { id: 42, email: 'ada@example.test' } },
+  { key: 'k-cust-43', values: { id: 43, email: 'grace@example.test' } },
+];
+
+function serveCustomerRows() {
+  listTableRows.mockImplementation((...args: unknown[]) => {
+    const options = args[4] as { search?: string } | undefined;
+    const needle = options?.search?.toLowerCase();
+    const items = needle
+      ? CUSTOMER_ROWS.filter((row) =>
+          String(row.values.email).toLowerCase().includes(needle),
+        )
+      : CUSTOMER_ROWS;
+    return Promise.resolve({ items, nextCursor: null });
+  });
+}
+
 /** Serves the record matching the requested table/key, like the API would. */
 function serveRecords() {
   getTableRecord.mockImplementation((...args: unknown[]) => {
@@ -237,11 +266,13 @@ describe('RecordDetailPage', () => {
     getDatasourceSchema.mockReset();
     getTableRecord.mockReset();
     updateTableRecord.mockReset();
+    listTableRows.mockReset();
     updateTableRecord.mockResolvedValue({
       row: { key: 'k-cust-42', values: {} },
     });
     getDatasourceSchema.mockResolvedValue(SCHEMA);
     serveRecords();
+    serveCustomerRows();
     // Default to a read-only member: no edit affordance unless a test opts in.
     roleHolder.role = 'member';
   });
@@ -427,5 +458,123 @@ describe('RecordDetailPage', () => {
 
     // The primary key stays read-only — no editable control is rendered for it.
     expect(screen.queryByLabelText('id')).not.toBeInTheDocument();
+  });
+
+  it('never offers a free-text input for a foreign key, only a picker', async () => {
+    roleHolder.role = 'owner';
+    const user = userEvent.setup();
+    renderPage(`${BASE}/data/tables/t-orders/records/k-order-7`);
+
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+
+    // The plain column keeps its text box…
+    expect(screen.getByLabelText('note').tagName).toBe('INPUT');
+    // …while the FK column resolves to the picker button, never an input.
+    const control = screen.getByLabelText('customer_id');
+    expect(control.tagName).toBe('BUTTON');
+    expect(control).toHaveTextContent('Change');
+    // The current relation is shown as data (key + resolved identity).
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText(/ada@example\.test/)).toBeInTheDocument();
+    // Opening the editor reads nothing from the referenced table.
+    expect(listTableRows).not.toHaveBeenCalled();
+  });
+
+  it('picks the related row in a searchable drawer and saves its key', async () => {
+    roleHolder.role = 'owner';
+    const user = userEvent.setup();
+    renderPage(`${BASE}/data/tables/t-orders/records/k-order-7`);
+
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+    await user.click(screen.getByLabelText('customer_id'));
+
+    // The drawer browses the referenced table through the governed endpoint.
+    const drawer = await screen.findByRole('dialog');
+    expect(drawer).toHaveTextContent('Select a customers row');
+    await waitFor(() =>
+      expect(listTableRows).toHaveBeenCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-customers',
+        expect.objectContaining({ search: undefined }),
+      ),
+    );
+    await within(drawer).findByText('grace@example.test');
+
+    // Searching re-queries the server, it does not filter the loaded page.
+    await user.type(within(drawer).getByLabelText('Search customers'), 'grace');
+    await waitFor(() =>
+      expect(listTableRows).toHaveBeenLastCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-customers',
+        expect.objectContaining({ search: 'grace' }),
+      ),
+    );
+    await waitFor(() =>
+      expect(within(drawer).queryByText('ada@example.test')).toBeNull(),
+    );
+
+    await user.click(await within(drawer).findByText('grace@example.test'));
+
+    // Picking closes the drawer and writes the referenced column's value.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText(/grace@example\.test/)).toBeInTheDocument();
+    // The field and the pending-change diff both carry the new key.
+    expect(screen.getAllByText('43')).toHaveLength(2);
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() =>
+      expect(updateTableRecord).toHaveBeenCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-orders',
+        'k-order-7',
+        { set: { customer_id: '43' } },
+      ),
+    );
+  });
+
+  it('clears a nullable foreign key to NULL without typing anything', async () => {
+    roleHolder.role = 'owner';
+    const user = userEvent.setup();
+    renderPage(`${BASE}/data/tables/t-orders/records/k-order-7`);
+
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+    await user.click(screen.getByRole('button', { name: 'Clear customer_id' }));
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() =>
+      expect(updateTableRecord).toHaveBeenCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-orders',
+        'k-order-7',
+        { set: { customer_id: null } },
+      ),
+    );
+  });
+
+  it('keeps a foreign key read-only when its table is missing from the snapshot', async () => {
+    roleHolder.role = 'owner';
+    getDatasourceSchema.mockResolvedValue({
+      ...SCHEMA,
+      // The customers table dropped out of the snapshot: nothing to pick from.
+      tables: SCHEMA.tables.filter((table) => table.id !== 't-customers'),
+    });
+    const user = userEvent.setup();
+    renderPage(`${BASE}/data/tables/t-orders/records/k-order-7`);
+
+    await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+
+    expect(screen.queryByLabelText('customer_id')).not.toBeInTheDocument();
+    expect(screen.getByText(/not in this schema snapshot/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^(change|select)$/i }),
+    ).not.toBeInTheDocument();
   });
 });

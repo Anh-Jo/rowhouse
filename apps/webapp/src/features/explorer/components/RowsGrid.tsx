@@ -23,6 +23,10 @@ import { explorerKeys } from '@/api/query-keys';
 import type { SchemaTableDto } from '@/api/schema';
 import { describeCellValue } from '../helpers/cell-value';
 import {
+  resolveRelation,
+  type ColumnRelation,
+} from '../helpers/column-relation';
+import {
   describeFilter,
   parseRowQueryParams,
   serializeFilters,
@@ -49,36 +53,13 @@ type GridRow = {
 function CellValue({ value }: { value: unknown }) {
   const display = describeCellValue(value);
   return (
-    <span className={`cell-value cell-value--${display.kind}`} title={display.title}>
+    <span
+      className={`cell-value cell-value--${display.kind}`}
+      title={display.title}
+    >
       {display.text}
     </span>
   );
-}
-
-/**
- * The relation an FK column carries, already resolved against the snapshot:
- * `tableId` is null when the referenced table is not in it (another schema,
- * or a sync that has not caught up) — the relation is then shown, not linked.
- */
-type ColumnRelation = {
-  tableId: string | null;
-  tableName: string;
-  columnName: string;
-};
-
-/** Resolves a column's foreign key against the snapshot, null if it has none. */
-function resolveRelation(
-  column: SchemaTableDto['columns'][number],
-  tables: SchemaTableDto[],
-): ColumnRelation | null {
-  if (!column.refTable || !column.refColumn) {
-    return null;
-  }
-  return {
-    tableId: tables.find((table) => table.name === column.refTable)?.id ?? null,
-    tableName: column.refTable,
-    columnName: column.refColumn,
-  };
 }
 
 /**
@@ -232,7 +213,10 @@ function RowsGrid({
   useEffect(() => () => clearTimeout(searchTimer.current), []);
 
   /** Writes one refinement into the URL (replace — no history spam). */
-  const setParam = (key: 'filters' | 'sort' | 'search', value: string | null) => {
+  const setParam = (
+    key: 'filters' | 'sort' | 'search',
+    value: string | null,
+  ) => {
     setSearchParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -249,14 +233,21 @@ function RowsGrid({
 
   const filtersParam = serializeFilters(refinements.filters) ?? undefined;
   const sortParam = serializeSort(refinements.sort) ?? undefined;
-  const searchParam = refinements.search === '' ? undefined : refinements.search;
+  const searchParam =
+    refinements.search === '' ? undefined : refinements.search;
 
   const rowsQuery = useInfiniteQuery({
-    queryKey: explorerKeys.rows(workspaceId, projectId, datasourceId, table.id, {
-      filters: filtersParam,
-      sort: sortParam,
-      search: searchParam,
-    }),
+    queryKey: explorerKeys.rows(
+      workspaceId,
+      projectId,
+      datasourceId,
+      table.id,
+      {
+        filters: filtersParam,
+        sort: sortParam,
+        search: searchParam,
+      },
+    ),
     queryFn: ({ pageParam }) =>
       listTableRows(workspaceId, projectId, datasourceId, table.id, {
         cursor: pageParam === '' ? undefined : pageParam,
@@ -282,7 +273,8 @@ function RowsGrid({
   const applyFilter = (filter: RowFilter) => {
     // Same column + operator refines in place; anything else stacks (AND).
     const kept = refinements.filters.filter(
-      (existing) => existing.column !== filter.column || existing.op !== filter.op,
+      (existing) =>
+        existing.column !== filter.column || existing.op !== filter.op,
     );
     setParam('filters', serializeFilters([...kept, filter]));
   };
