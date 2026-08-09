@@ -22,6 +22,7 @@ import {
 } from '@/api/datasources';
 import { syncSchema } from '@/api/schema';
 import { useWorkspaceId } from '@/hooks/useWorkspaceId';
+import { parseConnectionUri } from '../helpers/connection-uri';
 import {
   isReadOnlyCanWriteProblem,
   validateInstanceConnectionName,
@@ -325,6 +326,9 @@ function ConnectDatasourcePage() {
   const [method, setMethod] = useState<ConnectionMethod>('DIRECT');
   const [authType, setAuthType] = useState<CloudSqlAuthType>('IAM');
   const [snippet, setSnippet] = useState<SnippetState>({ status: 'idle' });
+  // The pasted URI is a filling tool, not a value: it lives outside
+  // react-hook-form and is never part of a create/update payload.
+  const [uri, setUri] = useState('');
 
   const form = useForm<ConnectFormValues>({
     // Unmounted branch fields drop out of validation and submitted values —
@@ -362,6 +366,34 @@ function ConnectDatasourcePage() {
     }
     if (method === 'CLOUDSQL') {
       form.resetField('saKeyJson');
+    }
+  };
+
+  /**
+   * Fills the Direct fields from the pasted URI as it is pasted or edited; a
+   * value that does not parse simply fills nothing, leaving the fields below
+   * to be typed by hand. Credentials the URI carries only ever land on the
+   * **read-only** role — Rowhouse is never handed a write path implicitly,
+   * and the connection test still has to prove that role cannot write.
+   */
+  const onUriChange = (input: string) => {
+    setUri(input);
+    const result = parseConnectionUri(input);
+    if (!result.ok) {
+      return;
+    }
+    const { host, port, database, sslMode, username, password } = result.value;
+    // shouldValidate clears the "… is required" errors a failed submit left on
+    // the fields we are filling.
+    form.setValue('host', host, { shouldValidate: true });
+    form.setValue('port', String(port), { shouldValidate: true });
+    form.setValue('database', database, { shouldValidate: true });
+    form.setValue('sslMode', sslMode);
+    if (username !== undefined) {
+      form.setValue('readOnlyUsername', username, { shouldValidate: true });
+    }
+    if (password !== undefined) {
+      form.setValue('readOnlyPassword', password, { shouldValidate: true });
     }
   };
 
@@ -617,6 +649,19 @@ function ConnectDatasourcePage() {
         {method === 'DIRECT' ? (
           <fieldset className="connect-page__fieldset" disabled={busy}>
             <legend className="connect-page__legend">Database</legend>
+            {/* Shortcut, not a second source of truth: it writes into the
+                fields below, which stay the values that get saved. */}
+            <Input
+              className="connect-uri"
+              label="Connection URI"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="postgres://user:password@db.example.com:5432/app_production"
+              hint="Optional — pasting one fills the fields below. Credentials it carries go to the read-only role; the URI itself is never sent or stored."
+              value={uri}
+              onChange={(event) => onUriChange(event.target.value)}
+            />
             <Input
               label="Name"
               type="text"

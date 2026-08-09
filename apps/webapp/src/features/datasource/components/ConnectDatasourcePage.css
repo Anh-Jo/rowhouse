@@ -80,6 +80,13 @@
   accent-color: var(--color-accent);
 }
 
+/* Connection-URI shortcut: ruled off from the fields it fills, since it is a
+   convenience above them rather than one more value to save. */
+.connect-uri {
+  padding-bottom: var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
 /* Role-creation snippet: collapsed by default — helpful, never in the way. */
 .connect-page__sql {
   display: flex;

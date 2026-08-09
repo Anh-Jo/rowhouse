@@ -436,6 +436,93 @@ describe('ConnectDatasourcePage', () => {
     });
   });
 
+  it('fills the Direct fields from a pasted connection URI, then creates the datasource from them', async () => {
+    createDatasource.mockResolvedValue(CREATED_DATASOURCE);
+    testConnection.mockResolvedValue({ ok: false, problems: ['nope'] });
+    const user = userEvent.setup();
+    renderPage();
+
+    const uriInput = screen.getByLabelText('Connection URI');
+    await user.click(uriInput);
+    await user.paste(
+      'postgres://momently:aea49d47e189ad7c@163.172.135.76:5222/momently?sslmode=disable',
+    );
+
+    // The paste itself is the trigger — no button, no Enter.
+    expect(screen.getByLabelText('Host')).toHaveValue('163.172.135.76');
+    expect(screen.getByLabelText('Port')).toHaveValue(5222);
+    expect(screen.getByLabelText('Database')).toHaveValue('momently');
+    // Credentials land on the read-only role only — never on the write path.
+    expect(screen.getByLabelText('Read-only username')).toHaveValue('momently');
+    expect(screen.getByLabelText('Read-only password')).toHaveValue(
+      'aea49d47e189ad7c',
+    );
+    expect(screen.getByLabelText('Read-write username')).toHaveValue('');
+    expect(screen.getByLabelText('Read-write password')).toHaveValue('');
+
+    await user.type(screen.getByLabelText('Name'), 'Production');
+    await user.type(
+      screen.getByLabelText('Read-write username'),
+      'rowhouse_rw',
+    );
+    await user.type(screen.getByLabelText('Read-write password'), 'rw-secret');
+    await user.click(screen.getByRole('button', { name: 'Connect & test' }));
+
+    await screen.findByRole('alert');
+    // The URI itself is never part of the payload: only the fields it filled,
+    // with sslmode=disable carried over.
+    expect(createDatasource).toHaveBeenCalledExactlyOnceWith('ws-1', 'p-1', {
+      method: 'DIRECT',
+      name: 'Production',
+      host: '163.172.135.76',
+      port: 5222,
+      database: 'momently',
+      sslMode: 'DISABLE',
+      readOnly: { username: 'momently', password: 'aea49d47e189ad7c' },
+      readWrite: { username: 'rowhouse_rw', password: 'rw-secret' },
+    });
+  });
+
+  it('re-fills the fields when the pasted URI is edited', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const uriInput = screen.getByLabelText('Connection URI');
+    await user.click(uriInput);
+    await user.paste('postgres://db.example.com:5432/app');
+    expect(screen.getByLabelText('Host')).toHaveValue('db.example.com');
+
+    // Editing the URI in place re-fills, same as the paste did.
+    await user.type(uriInput, '2');
+    expect(screen.getByLabelText('Database')).toHaveValue('app2');
+  });
+
+  it('fills nothing while the URI is unusable, leaving the fields as typed', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('Host'), 'db.example.com');
+    const uriInput = screen.getByLabelText('Connection URI');
+    await user.click(uriInput);
+    await user.paste('mysql://root@db.example.com/other');
+
+    // A value that does not parse is left alone: no field is overwritten and
+    // the text stays in place so it can be fixed.
+    expect(screen.getByLabelText('Host')).toHaveValue('db.example.com');
+    expect(screen.getByLabelText('Database')).toHaveValue('');
+    expect(uriInput).toHaveValue('mysql://root@db.example.com/other');
+    expect(createDatasource).not.toHaveBeenCalled();
+  });
+
+  it('offers the connection URI shortcut on the Direct method only', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByLabelText('Connection URI')).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /Google Cloud SQL/ }));
+    expect(screen.queryByLabelText('Connection URI')).not.toBeInTheDocument();
+  });
+
   it('creates a Cloud SQL datasource with the discriminated payload — no password fields under IAM', async () => {
     createDatasource.mockResolvedValue(CREATED_DATASOURCE);
     testConnection.mockResolvedValue({ ok: false, problems: ['nope'] });
