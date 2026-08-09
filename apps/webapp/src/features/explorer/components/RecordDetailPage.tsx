@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,7 +15,7 @@ import { Callout } from '@/components/Callout/Callout';
 import { Card } from '@/components/Card/Card';
 import { DataTable, type Column } from '@/components/DataTable/DataTable';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
-import { Input } from '@/components/Input/Input';
+import { RecordFieldInput } from '@/components/RecordFieldInput/RecordFieldInput';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { Skeleton } from '@/components/Skeleton/Skeleton';
 import { ApiError } from '@/api/errors';
@@ -34,6 +34,12 @@ import {
   describePkIdentity,
   describeRowIdentity,
 } from '../helpers/row-identity';
+import {
+  fieldKindFor,
+  numberStepFor,
+  toApiValue,
+  toFieldValue,
+} from '../helpers/column-input';
 import './RecordDetailPage.css';
 
 /** Record path for a row of a table — one place builds it for every link. */
@@ -234,20 +240,14 @@ function RelatedPanel({
   );
 }
 
-/** Text form of a cell value for an `<input>`; null/undefined → empty. */
-function toInputValue(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
-}
-
 /**
- * Inline single-record editor: every non-PK column becomes an input, the PK
- * stays read-only (identity is not editable here). A live diff of the pending
- * changes sits in the footer; Save sends only the changed columns as one
- * governed, audited write. Server errors (403 without the capability, 409
- * multi-row, 404 gone) surface inline — the button guard is UX only, the
- * server stays the authority.
+ * Inline single-record editor. Each non-PK column renders the control that fits
+ * its type — a date picker for a date, a dropdown for a boolean or enum, a
+ * textarea for JSON, a numeric or text field otherwise — while the PK stays
+ * read-only (identity is not editable here). A live diff of the pending changes
+ * sits in the footer; Save sends only the changed columns as one governed,
+ * audited write. Server errors (403 without the capability, 409 multi-row, 404
+ * gone) surface inline — the button guard is UX only, the server is authority.
  */
 function EditRecordForm({
   table,
@@ -272,26 +272,38 @@ function EditRecordForm({
   const orderedColumns = [...table.columns].sort(
     (a, b) => a.position - b.position,
   );
-  const editableColumns = orderedColumns.filter(
-    (column) => !column.isPrimaryKey,
+
+  // Per editable column: its control kind and the loaded value in string form.
+  const editableFields = orderedColumns
+    .filter((column) => !column.isPrimaryKey)
+    .map((column) => {
+      const kind = fieldKindFor(column.dataType, column.enumValues);
+      return {
+        column,
+        kind,
+        initial: toFieldValue(record.row.values[column.name], kind),
+      };
+    });
+  const fieldById = new Map(
+    editableFields.map((field) => [field.column.id, field]),
   );
 
   const defaults: Record<string, string> = {};
-  for (const column of editableColumns) {
-    defaults[column.name] = toInputValue(record.row.values[column.name]);
+  for (const field of editableFields) {
+    defaults[field.column.name] = field.initial;
   }
 
-  const { register, handleSubmit, control } = useForm<Record<string, string>>({
+  const { control, handleSubmit } = useForm<Record<string, string>>({
     defaultValues: defaults,
   });
   const current = useWatch({ control });
 
-  // Only columns whose input differs from the loaded value count as changes.
-  const changes = editableColumns
-    .map((column) => ({
-      name: column.name,
-      before: defaults[column.name],
-      after: current[column.name] ?? defaults[column.name],
+  // Only columns whose control value differs from the loaded value are changes.
+  const changes = editableFields
+    .map((field) => ({
+      name: field.column.name,
+      before: field.initial,
+      after: current[field.column.name] ?? field.initial,
     }))
     .filter((change) => change.after !== change.before);
 
@@ -330,11 +342,11 @@ function EditRecordForm({
   });
 
   const onSubmit = (values: Record<string, string>) => {
-    const set: Record<string, string | null> = {};
-    for (const column of editableColumns) {
-      const after = values[column.name] ?? '';
-      if (after !== defaults[column.name]) {
-        set[column.name] = after === '' ? null : after;
+    const set: UpdateRecordInput['set'] = {};
+    for (const field of editableFields) {
+      const after = values[field.column.name] ?? '';
+      if (after !== field.initial) {
+        set[field.column.name] = toApiValue(after, field.kind);
       }
     }
     if (Object.keys(set).length === 0) return;
@@ -343,24 +355,51 @@ function EditRecordForm({
 
   return (
     <form className="record-edit" onSubmit={handleSubmit(onSubmit)}>
-      <dl className="record-fields record-fields--editing">
-        {orderedColumns.map((column) => (
-          <div className="record-fields__row" key={column.id}>
-            <dt className="record-fields__label">
-              {column.name}
-              {column.isPrimaryKey && <Badge label="PK" variant="info" />}
-              {column.isPii && <Badge label="PII" variant="pii" />}
-            </dt>
-            <dd className="record-fields__value">
-              {column.isPrimaryKey ? (
-                <FieldValue value={record.row.values[column.name]} />
-              ) : (
-                <Input aria-label={column.name} {...register(column.name)} />
+      <div className="record-edit__fields">
+        {orderedColumns.map((column) => {
+          if (column.isPrimaryKey) {
+            return (
+              <div className="record-edit__pk" key={column.id}>
+                <span className="record-edit__pk-label">
+                  {column.name}
+                  <Badge label="PK" variant="info" />
+                </span>
+                <span className="record-edit__pk-value">
+                  {toFieldValue(record.row.values[column.name], 'text') || '∅'}
+                </span>
+              </div>
+            );
+          }
+          const field = fieldById.get(column.id);
+          if (!field) return null;
+          const hint = [
+            column.enumValues.length > 0 ? 'enum' : column.dataType,
+            column.isNullable ? 'nullable' : null,
+            column.isPii ? 'PII' : null,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+          return (
+            <Controller
+              key={column.id}
+              name={column.name}
+              control={control}
+              render={({ field: rhf }) => (
+                <RecordFieldInput
+                  kind={field.kind}
+                  label={column.name}
+                  hint={hint}
+                  nullable={column.isNullable}
+                  enumValues={column.enumValues}
+                  step={numberStepFor(column.dataType)}
+                  value={rhf.value ?? ''}
+                  onChange={rhf.onChange}
+                />
               )}
-            </dd>
-          </div>
-        ))}
-      </dl>
+            />
+          );
+        })}
+      </div>
 
       {mutation.error && (
         <Callout variant="danger" title="Could not save your changes">

@@ -56,6 +56,7 @@ function buildSchema(emailIsPii: boolean): DatasourceSchemaDto {
             position: 1,
             description: null,
             isPii: false,
+            enumValues: [],
           },
           {
             id: 'c-email',
@@ -68,6 +69,7 @@ function buildSchema(emailIsPii: boolean): DatasourceSchemaDto {
             position: 2,
             description: null,
             isPii: emailIsPii,
+            enumValues: [],
           },
           {
             id: 'c-org',
@@ -80,6 +82,7 @@ function buildSchema(emailIsPii: boolean): DatasourceSchemaDto {
             position: 3,
             description: null,
             isPii: false,
+            enumValues: [],
           },
         ],
       },
@@ -100,6 +103,7 @@ function buildSchema(emailIsPii: boolean): DatasourceSchemaDto {
             position: 1,
             description: null,
             isPii: false,
+            enumValues: [],
           },
         ],
       },
@@ -157,7 +161,9 @@ describe('TableDetailPage', () => {
   it('lists the tables referencing this one, each linking to its detail', async () => {
     renderPage();
 
-    const section = await screen.findByRole('region', { name: 'Referenced by' });
+    const section = await screen.findByRole('region', {
+      name: 'Referenced by',
+    });
     const incoming = within(section).getByRole('link', {
       name: 'organizations.owner_id',
     });
