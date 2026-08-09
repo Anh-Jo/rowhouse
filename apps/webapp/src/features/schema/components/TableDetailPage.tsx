@@ -100,6 +100,8 @@ function TableDetailPage() {
   const findTableIdByName = (name: string): string | null =>
     tables.find((candidate) => candidate.name === name)?.id ?? null;
 
+  const incomingRelations = findIncomingRelations(table, tables);
+
   const mutationError = tableMutation.error ?? columnMutation.error;
 
   return (
@@ -201,7 +203,69 @@ function TableDetailPage() {
           );
         })}
       </ul>
+
+      {incomingRelations.length > 0 && (
+        <IncomingRelations relations={incomingRelations} basePath={backPath} />
+      )}
     </div>
+  );
+}
+
+/** One column of another table pointing at this one. */
+type IncomingRelation = {
+  tableId: string;
+  tableName: string;
+  viaColumn: string;
+  targetColumn: string;
+};
+
+/**
+ * Every column of every other table whose foreign key targets this one.
+ * Outgoing keys are visible column by column; without this the other half of
+ * the relation graph — who depends on this table — stays invisible.
+ */
+function findIncomingRelations(
+  table: SchemaTableDto,
+  tables: SchemaTableDto[],
+): IncomingRelation[] {
+  return tables
+    .filter((candidate) => candidate.id !== table.id)
+    .flatMap((candidate) =>
+      candidate.columns
+        .filter((column) => column.refTable === table.name)
+        .map((column) => ({
+          tableId: candidate.id,
+          tableName: candidate.name,
+          viaColumn: column.name,
+          targetColumn: column.refColumn ?? '',
+        })),
+    );
+}
+
+function IncomingRelations({
+  relations,
+  basePath,
+}: {
+  relations: IncomingRelation[];
+  basePath: string;
+}) {
+  return (
+    <section className="table-detail__relations" aria-label="Referenced by">
+      <h2 className="table-detail__relations-heading">Referenced by</h2>
+      <ul className="table-detail__relations-list">
+        {relations.map((relation) => (
+          <li key={`${relation.tableId}-${relation.viaColumn}`}>
+            <Link to={`${basePath}/tables/${relation.tableId}`}>
+              {relation.tableName}.{relation.viaColumn}
+            </Link>
+            <span className="table-detail__relations-target">
+              {' → '}
+              {relation.targetColumn}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

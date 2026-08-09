@@ -139,6 +139,36 @@
   color: var(--color-accent-text);
 }
 
+/* ── Incoming relations: the other half of the relation graph ── */
+.table-detail__relations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.table-detail__relations-heading {
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.table-detail__relations-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+}
+
+.table-detail__relations-list a {
+  color: var(--color-accent-text);
+}
+
+.table-detail__relations-target {
+  color: var(--color-text-muted);
+}
+
 .table-detail__column-editor {
   display: flex;
   flex-direction: column;

@@ -21,17 +21,20 @@ type ColumnRow = {
 
 /**
  * One catalog query for the whole schema: columns joined with primary-key
- * membership and single-column foreign keys. System schemas excluded.
- * Multi-column FKs surface as one reference per column, which is the level
- * of detail the explorer's relation navigation needs.
+ * membership and foreign keys. System schemas excluded. Multi-column FKs
+ * surface as one reference per column, which is the level of detail the
+ * explorer's relation navigation needs.
  *
  * Constraints are read from `pg_catalog`, NOT from `information_schema`:
  * the constraint views there are privilege-filtered, and we always connect
  * as the READ_ONLY role (SELECT and nothing else). Under that role
  * `information_schema.table_constraints` returns zero rows, so every table
  * would look primary-key-less — and a table without a PK has no addressable
- * records (no record page, first page only). `pg_catalog` is readable by
- * any role, so the snapshot matches the database whatever we connect as.
+ * records (no record page, first page only). `constraint_column_usage` is
+ * stricter still: it needs a privilege *other than* SELECT on the referenced
+ * table, so no foreign key was ever discoverable and the whole relation graph
+ * (FK links, "Linked records" panels) stayed empty. `pg_catalog` is readable
+ * by any role, so the snapshot matches the database whatever we connect as.
  */
 const INTROSPECT_SQL = `
   SELECT
@@ -64,17 +67,29 @@ const INTROSPECT_SQL = `
       AND pk.table_name = c.table_name
       AND pk.column_name = c.column_name
   LEFT JOIN (
-    SELECT kcu.table_schema, kcu.table_name, kcu.column_name,
-           ccu.table_name AS foreign_table_name,
-           ccu.column_name AS foreign_column_name
-    FROM information_schema.table_constraints tc
-    JOIN information_schema.key_column_usage kcu
-      ON kcu.constraint_name = tc.constraint_name
-     AND kcu.table_schema = tc.table_schema
-    JOIN information_schema.constraint_column_usage ccu
-      ON ccu.constraint_name = tc.constraint_name
-     AND ccu.table_schema = tc.table_schema
-    WHERE tc.constraint_type = 'FOREIGN KEY'
+    -- One row per referencing column. conkey and confkey are positionally
+    -- aligned, so unnesting them together pairs each column with the column
+    -- it actually points at — a composite FK (a, b) -> (x, y) yields a->x
+    -- and b->y, never the cross product. DISTINCT ON keeps the reference
+    -- single-valued when two constraints cover the same column.
+    SELECT DISTINCT ON (nsp.nspname, rel.relname, att.attname)
+           nsp.nspname AS table_schema,
+           rel.relname AS table_name,
+           att.attname AS column_name,
+           frel.relname AS foreign_table_name,
+           fatt.attname AS foreign_column_name
+    FROM pg_catalog.pg_constraint con
+    JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+    JOIN pg_catalog.pg_namespace nsp ON nsp.oid = rel.relnamespace
+    JOIN pg_catalog.pg_class frel ON frel.oid = con.confrelid
+    JOIN LATERAL unnest(con.conkey, con.confkey) AS pair(attnum, fattnum)
+      ON true
+    JOIN pg_catalog.pg_attribute att
+      ON att.attrelid = con.conrelid AND att.attnum = pair.attnum
+    JOIN pg_catalog.pg_attribute fatt
+      ON fatt.attrelid = con.confrelid AND fatt.attnum = pair.fattnum
+    WHERE con.contype = 'f'
+    ORDER BY nsp.nspname, rel.relname, att.attname, con.conname
   ) fk ON fk.table_schema = c.table_schema
       AND fk.table_name = c.table_name
       AND fk.column_name = c.column_name
