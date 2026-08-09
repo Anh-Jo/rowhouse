@@ -80,6 +80,22 @@
   accent-color: var(--color-accent);
 }
 
+/* Connection-URI shortcut: stacked (input then button) rather than side by
+   side, so the pasted URI gets the full width on every device — they are long
+   and the interesting part (host/database) sits at the end. */
+.connect-uri {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding-bottom: var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.connect-uri__input {
+  width: 100%;
+}
+
 /* Role-creation snippet: collapsed by default — helpful, never in the way. */
 .connect-page__sql {
   display: flex;

@@ -436,6 +436,90 @@ describe('ConnectDatasourcePage', () => {
     });
   });
 
+  it('fills the Direct fields from a pasted connection URI, then creates the datasource from them', async () => {
+    createDatasource.mockResolvedValue(CREATED_DATASOURCE);
+    testConnection.mockResolvedValue({ ok: false, problems: ['nope'] });
+    const user = userEvent.setup();
+    renderPage();
+
+    const uriInput = screen.getByLabelText('Connection URI');
+    await user.click(uriInput);
+    await user.paste(
+      'postgres://momently:aea49d47e189ad7c@163.172.135.76:5222/momently?sslmode=disable',
+    );
+    await user.click(screen.getByRole('button', { name: 'Fill from URI' }));
+
+    expect(screen.getByLabelText('Host')).toHaveValue('163.172.135.76');
+    expect(screen.getByLabelText('Port')).toHaveValue(5222);
+    expect(screen.getByLabelText('Database')).toHaveValue('momently');
+    // Credentials land on the read-only role only — never on the write path.
+    expect(screen.getByLabelText('Read-only username')).toHaveValue('momently');
+    expect(screen.getByLabelText('Read-only password')).toHaveValue(
+      'aea49d47e189ad7c',
+    );
+    expect(screen.getByLabelText('Read-write username')).toHaveValue('');
+    expect(screen.getByLabelText('Read-write password')).toHaveValue('');
+    // The pasted URI (password included) does not linger in the DOM.
+    expect(uriInput).toHaveValue('');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'went to the read-only role',
+    );
+
+    await user.type(screen.getByLabelText('Name'), 'Production');
+    await user.type(
+      screen.getByLabelText('Read-write username'),
+      'rowhouse_rw',
+    );
+    await user.type(screen.getByLabelText('Read-write password'), 'rw-secret');
+    await user.click(screen.getByRole('button', { name: 'Connect & test' }));
+
+    await screen.findByRole('alert');
+    // The URI itself is never part of the payload: only the fields it filled,
+    // with sslmode=disable carried over.
+    expect(createDatasource).toHaveBeenCalledExactlyOnceWith('ws-1', 'p-1', {
+      method: 'DIRECT',
+      name: 'Production',
+      host: '163.172.135.76',
+      port: 5222,
+      database: 'momently',
+      sslMode: 'DISABLE',
+      readOnly: { username: 'momently', password: 'aea49d47e189ad7c' },
+      readWrite: { username: 'rowhouse_rw', password: 'rw-secret' },
+    });
+  });
+
+  it('reports an unusable connection URI inline and leaves the fields untouched', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('Host'), 'db.example.com');
+    await user.click(screen.getByLabelText('Connection URI'));
+    await user.paste('mysql://root@db.example.com/app');
+    await user.click(screen.getByRole('button', { name: 'Fill from URI' }));
+
+    expect(
+      screen.getByText(
+        'Must be a connection URI like postgres://user:password@host:5432/database',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Host')).toHaveValue('db.example.com');
+    expect(screen.getByLabelText('Database')).toHaveValue('');
+    // The rejected URI stays in the field so it can be fixed in place.
+    expect(screen.getByLabelText('Connection URI')).toHaveValue(
+      'mysql://root@db.example.com/app',
+    );
+    expect(createDatasource).not.toHaveBeenCalled();
+  });
+
+  it('offers the connection URI shortcut on the Direct method only', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByLabelText('Connection URI')).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /Google Cloud SQL/ }));
+    expect(screen.queryByLabelText('Connection URI')).not.toBeInTheDocument();
+  });
+
   it('creates a Cloud SQL datasource with the discriminated payload — no password fields under IAM', async () => {
     createDatasource.mockResolvedValue(CREATED_DATASOURCE);
     testConnection.mockResolvedValue({ ok: false, problems: ['nope'] });
