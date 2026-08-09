@@ -5,6 +5,12 @@
 
 .admin-layout__main {
   flex: 1;
+  /* min-width:0 lets this flex item shrink to the viewport instead of growing
+     to its widest descendant (a wide data grid). Without it, min-width:auto
+     resolves to the grid's min-content, the column overflows past the viewport
+     — clipped by the full-bleed overflow:hidden — and the grid's own
+     overflow-x:auto never engages (no scroll, right border pushed off-screen). */
+  min-width: 0;
   margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
