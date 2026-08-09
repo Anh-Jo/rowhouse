@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type SyntheticEvent } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
@@ -66,16 +66,6 @@ type ConnectStage =
   | { step: 'testing' }
   | { step: 'failed'; problems: string[] }
   | { step: 'syncing' };
-
-/**
- * Outcome of the last "Fill from URI" attempt. `filled` distinguishes whether
- * the URI carried credentials, because that changes what the user still has to
- * do (the read-write role is never filled from a URI — see `applyUri`).
- */
-type UriState =
-  | { status: 'idle' }
-  | { status: 'error'; message: string }
-  | { status: 'filled'; withCredentials: boolean };
 
 /** Cloud SQL snippet fetch state — driven by opening the collapsed block. */
 type SnippetState =
@@ -339,7 +329,6 @@ function ConnectDatasourcePage() {
   // The pasted URI is a filling tool, not a value: it lives outside
   // react-hook-form and is never part of a create/update payload.
   const [uri, setUri] = useState('');
-  const [uriState, setUriState] = useState<UriState>({ status: 'idle' });
 
   const form = useForm<ConnectFormValues>({
     // Unmounted branch fields drop out of validation and submitted values —
@@ -381,51 +370,30 @@ function ConnectDatasourcePage() {
   };
 
   /**
-   * Fills the Direct fields from a pasted libpq URI. Two deliberate limits:
-   * the URI's credentials only ever land on the **read-only** role (Rowhouse
-   * must never be handed a write path implicitly — the connection test still
-   * proves that role cannot write), and the input is emptied on success so a
-   * pasted password does not linger in the DOM as plain text.
+   * Fills the Direct fields from the pasted URI as it is pasted or edited; a
+   * value that does not parse simply fills nothing, leaving the fields below
+   * to be typed by hand. Credentials the URI carries only ever land on the
+   * **read-only** role — Rowhouse is never handed a write path implicitly,
+   * and the connection test still has to prove that role cannot write.
    */
-  const applyUri = () => {
-    const result = parseConnectionUri(uri);
+  const onUriChange = (input: string) => {
+    setUri(input);
+    const result = parseConnectionUri(input);
     if (!result.ok) {
-      setUriState({ status: 'error', message: result.message });
       return;
     }
-    const { value } = result;
-    const fill = (
-      field:
-        | 'host'
-        | 'port'
-        | 'database'
-        | 'readOnlyUsername'
-        | 'readOnlyPassword',
-      fieldValue: string,
-    ) => form.setValue(field, fieldValue, { shouldValidate: true });
-
-    fill('host', value.host);
-    fill('port', String(value.port));
-    fill('database', value.database);
-    form.setValue('sslMode', value.sslMode);
-    if (value.username !== undefined) {
-      fill('readOnlyUsername', value.username);
+    const { host, port, database, sslMode, username, password } = result.value;
+    // shouldValidate clears the "… is required" errors a failed submit left on
+    // the fields we are filling.
+    form.setValue('host', host, { shouldValidate: true });
+    form.setValue('port', String(port), { shouldValidate: true });
+    form.setValue('database', database, { shouldValidate: true });
+    form.setValue('sslMode', sslMode);
+    if (username !== undefined) {
+      form.setValue('readOnlyUsername', username, { shouldValidate: true });
     }
-    if (value.password !== undefined) {
-      fill('readOnlyPassword', value.password);
-    }
-    setUri('');
-    setUriState({
-      status: 'filled',
-      withCredentials: value.username !== undefined,
-    });
-  };
-
-  // Enter inside the URI field means "fill", not "submit the whole form".
-  const onUriKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      applyUri();
+    if (password !== undefined) {
+      form.setValue('readOnlyPassword', password, { shouldValidate: true });
     }
   };
 
@@ -683,36 +651,17 @@ function ConnectDatasourcePage() {
             <legend className="connect-page__legend">Database</legend>
             {/* Shortcut, not a second source of truth: it writes into the
                 fields below, which stay the values that get saved. */}
-            <div className="connect-uri">
-              <Input
-                className="connect-uri__input"
-                label="Connection URI"
-                type="text"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="postgres://user:password@db.example.com:5432/app_production"
-                hint="Optional — paste a postgres:// URI to fill the fields below. The URI itself is never sent or stored."
-                error={
-                  uriState.status === 'error' ? uriState.message : undefined
-                }
-                value={uri}
-                onChange={(event) => {
-                  setUri(event.target.value);
-                  setUriState({ status: 'idle' });
-                }}
-                onKeyDown={onUriKeyDown}
-              />
-              <Button type="button" variant="secondary" onClick={applyUri}>
-                Fill from URI
-              </Button>
-            </div>
-            {uriState.status === 'filled' && (
-              <p className="connect-page__hint" role="status">
-                {uriState.withCredentials
-                  ? 'Fields filled from the URI. Its credentials went to the read-only role — the read-write role is never filled from a URI, and the connection test verifies the read-only role cannot write.'
-                  : 'Fields filled from the URI. It carried no credentials — fill both roles below.'}
-              </p>
-            )}
+            <Input
+              className="connect-uri"
+              label="Connection URI"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="postgres://user:password@db.example.com:5432/app_production"
+              hint="Optional — pasting one fills the fields below. Credentials it carries go to the read-only role; the URI itself is never sent or stored."
+              value={uri}
+              onChange={(event) => onUriChange(event.target.value)}
+            />
             <Input
               label="Name"
               type="text"

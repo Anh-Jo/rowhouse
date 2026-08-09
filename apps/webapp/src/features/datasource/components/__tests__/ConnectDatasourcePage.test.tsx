@@ -447,8 +447,8 @@ describe('ConnectDatasourcePage', () => {
     await user.paste(
       'postgres://momently:aea49d47e189ad7c@163.172.135.76:5222/momently?sslmode=disable',
     );
-    await user.click(screen.getByRole('button', { name: 'Fill from URI' }));
 
+    // The paste itself is the trigger — no button, no Enter.
     expect(screen.getByLabelText('Host')).toHaveValue('163.172.135.76');
     expect(screen.getByLabelText('Port')).toHaveValue(5222);
     expect(screen.getByLabelText('Database')).toHaveValue('momently');
@@ -459,11 +459,6 @@ describe('ConnectDatasourcePage', () => {
     );
     expect(screen.getByLabelText('Read-write username')).toHaveValue('');
     expect(screen.getByLabelText('Read-write password')).toHaveValue('');
-    // The pasted URI (password included) does not linger in the DOM.
-    expect(uriInput).toHaveValue('');
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'went to the read-only role',
-    );
 
     await user.type(screen.getByLabelText('Name'), 'Production');
     await user.type(
@@ -488,26 +483,34 @@ describe('ConnectDatasourcePage', () => {
     });
   });
 
-  it('reports an unusable connection URI inline and leaves the fields untouched', async () => {
+  it('re-fills the fields when the pasted URI is edited', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const uriInput = screen.getByLabelText('Connection URI');
+    await user.click(uriInput);
+    await user.paste('postgres://db.example.com:5432/app');
+    expect(screen.getByLabelText('Host')).toHaveValue('db.example.com');
+
+    // Editing the URI in place re-fills, same as the paste did.
+    await user.type(uriInput, '2');
+    expect(screen.getByLabelText('Database')).toHaveValue('app2');
+  });
+
+  it('fills nothing while the URI is unusable, leaving the fields as typed', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.type(screen.getByLabelText('Host'), 'db.example.com');
-    await user.click(screen.getByLabelText('Connection URI'));
-    await user.paste('mysql://root@db.example.com/app');
-    await user.click(screen.getByRole('button', { name: 'Fill from URI' }));
+    const uriInput = screen.getByLabelText('Connection URI');
+    await user.click(uriInput);
+    await user.paste('mysql://root@db.example.com/other');
 
-    expect(
-      screen.getByText(
-        'Must be a connection URI like postgres://user:password@host:5432/database',
-      ),
-    ).toBeInTheDocument();
+    // A value that does not parse is left alone: no field is overwritten and
+    // the text stays in place so it can be fixed.
     expect(screen.getByLabelText('Host')).toHaveValue('db.example.com');
     expect(screen.getByLabelText('Database')).toHaveValue('');
-    // The rejected URI stays in the field so it can be fixed in place.
-    expect(screen.getByLabelText('Connection URI')).toHaveValue(
-      'mysql://root@db.example.com/app',
-    );
+    expect(uriInput).toHaveValue('mysql://root@db.example.com/other');
     expect(createDatasource).not.toHaveBeenCalled();
   });
 
