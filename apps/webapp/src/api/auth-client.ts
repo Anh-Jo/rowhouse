@@ -20,8 +20,10 @@ export const authClient = createAuthClient({
 /** Reactive session hook — `{ data, isPending }`, `data` null when signed out. */
 export const useSession = authClient.useSession;
 
-/** Reactive list of the user's workspaces (better-auth organizations). */
-export const useListOrganizations = authClient.useListOrganizations;
+// The workspace list is NOT exposed through better-auth's reactive
+// `useListOrganizations` store: it fetches once and stops refetching after its
+// last consumer unmounts, which stranded the app on a stale empty list. It is
+// fetched through TanStack Query instead — see `src/api/workspaces.ts`.
 
 /** Ends the current session server-side and clears the cookie. */
 export async function signOut(): Promise<void> {
