@@ -14,6 +14,7 @@ without writing SQL and without ever leaving the read-only rails.
 Two stacked slices, one per view:
 
 **A — All-tables data view** (`feat/explorer-tables-view`)
+
 - Backend `explorer` module: governed row reading. SQL is built ONLY in the
   target-db layer (decision D1) from snapshot identifiers — never from
   client input — and executed through the QueryEngine (READ_ONLY role, one
@@ -26,6 +27,7 @@ Two stacked slices, one per view:
   more". Mobile: table list → grid as list+detail (D7).
 
 **B — Record detail & linked records** (`feat/explorer-record-view`)
+
 - Backend: record fetch by PK + related records — outgoing FKs resolve the
   referenced row per relation; incoming FKs list each referencing table
   with a count and a first page of rows. Same rails: snapshot-driven SQL,
@@ -34,16 +36,15 @@ Two stacked slices, one per view:
   linked panels per relation with counts, navigation record → record.
 
 **Non-goals**: editing (P2), PII masking enforcement (P2, needs RBAC),
-saved views (later in P1), filters/search inside the grid (next P1 slice),
-non-PK sorting.
+filters/search inside the grid (next P1 slice), non-PK sorting.
 
 ## Steps
 
 1. Phase plan (this file).
 2. `target-db`: pure SQL builders (quoting, keyset pagination, FK lookups)
-   + a `RowReader` service composing builders with the QueryEngine so
-   feature modules stay engine-neutral. Unit tests on builders (quoting,
-   cursor round-trip, row-value comparisons).
+   - a `RowReader` service composing builders with the QueryEngine so
+     feature modules stay engine-neutral. Unit tests on builders (quoting,
+     cursor round-trip, row-value comparisons).
 3. `modules/explorer`: rows endpoint
    (`GET .../tables/:tableId/rows?cursor&limit`), snapshot-scoped
    (tableId is a SchemaTable id — foreign ids 404), JSON-safe value
@@ -78,4 +79,3 @@ their orders back-referenced. Audit view shows one READ per page served.
   box, active-filter chips; all reflected in the URL so views are
   shareable.
 - Audit unchanged: one READ per page, params as digest.
-
