@@ -15,6 +15,7 @@ const ACTION_LABELS: Record<AuditEventDto['action'], string> = {
   CONNECTION_TEST: 'Connection test',
   INTROSPECT: 'Introspection',
   READ: 'Read',
+  WRITE: 'Write',
 };
 
 /**
@@ -69,7 +70,9 @@ function AuditPage() {
                 <span className="audit-page__event-badges">
                   {event.role && (
                     <Badge
-                      label={event.role === 'READ_ONLY' ? 'read-only' : 'read-write'}
+                      label={
+                        event.role === 'READ_ONLY' ? 'read-only' : 'read-write'
+                      }
                       variant={event.role === 'READ_ONLY' ? 'muted' : 'warning'}
                     />
                   )}

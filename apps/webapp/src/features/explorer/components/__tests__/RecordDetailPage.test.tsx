@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,15 +8,23 @@ import type { RecordDetailDto } from '@/api/explorer';
 import type { DatasourceSchemaDto, SchemaColumnDto } from '@/api/schema';
 import { RecordDetailPage } from '../RecordDetailPage';
 
-const { getDatasourceSchema, getTableRecord } = vi.hoisted(() => ({
-  getDatasourceSchema: vi.fn<() => Promise<DatasourceSchemaDto>>(),
-  getTableRecord: vi.fn<(...args: unknown[]) => Promise<RecordDetailDto>>(),
-}));
+const { getDatasourceSchema, getTableRecord, updateTableRecord, roleHolder } =
+  vi.hoisted(() => ({
+    getDatasourceSchema: vi.fn<() => Promise<DatasourceSchemaDto>>(),
+    getTableRecord: vi.fn<(...args: unknown[]) => Promise<RecordDetailDto>>(),
+    updateTableRecord: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+    // Mutable so a test can pick the caller's role before rendering.
+    roleHolder: { role: 'member' as string | null },
+  }));
 
 vi.mock('@/api/schema', () => ({ getDatasourceSchema }));
-vi.mock('@/api/explorer', () => ({ getTableRecord }));
+vi.mock('@/api/explorer', () => ({ getTableRecord, updateTableRecord }));
 vi.mock('@/hooks/useWorkspaceId', () => ({
   useWorkspaceId: () => ({ workspaceId: 'ws-1', isPending: false }),
+}));
+vi.mock('@/hooks/useWorkspaceRole', () => ({
+  useWorkspaceRole: () => ({ role: roleHolder.role, isPending: false }),
+  canEditRecords: (role: string | null) => role === 'owner' || role === 'admin',
 }));
 
 function column(
@@ -44,8 +52,22 @@ const SCHEMA: DatasourceSchemaDto = {
       name: 'orders',
       description: null,
       columns: [
-        column({ id: 'c-o-id', name: 'id', position: 1, isPrimaryKey: true, dataType: 'integer', isNullable: false }),
-        column({ id: 'c-o-customer', name: 'customer_id', position: 2, dataType: 'integer', refTable: 'customers', refColumn: 'id' }),
+        column({
+          id: 'c-o-id',
+          name: 'id',
+          position: 1,
+          isPrimaryKey: true,
+          dataType: 'integer',
+          isNullable: false,
+        }),
+        column({
+          id: 'c-o-customer',
+          name: 'customer_id',
+          position: 2,
+          dataType: 'integer',
+          refTable: 'customers',
+          refColumn: 'id',
+        }),
         column({ id: 'c-o-note', name: 'note', position: 3 }),
       ],
     },
@@ -55,7 +77,14 @@ const SCHEMA: DatasourceSchemaDto = {
       name: 'customers',
       description: null,
       columns: [
-        column({ id: 'c-c-id', name: 'id', position: 1, isPrimaryKey: true, dataType: 'integer', isNullable: false }),
+        column({
+          id: 'c-c-id',
+          name: 'id',
+          position: 1,
+          isPrimaryKey: true,
+          dataType: 'integer',
+          isNullable: false,
+        }),
         column({ id: 'c-c-email', name: 'email', position: 2, isPii: true }),
       ],
     },
@@ -65,8 +94,22 @@ const SCHEMA: DatasourceSchemaDto = {
       name: 'order_items',
       description: null,
       columns: [
-        column({ id: 'c-i-id', name: 'id', position: 1, isPrimaryKey: true, dataType: 'integer', isNullable: false }),
-        column({ id: 'c-i-order', name: 'order_id', position: 2, dataType: 'integer', refTable: 'orders', refColumn: 'id' }),
+        column({
+          id: 'c-i-id',
+          name: 'id',
+          position: 1,
+          isPrimaryKey: true,
+          dataType: 'integer',
+          isNullable: false,
+        }),
+        column({
+          id: 'c-i-order',
+          name: 'order_id',
+          position: 2,
+          dataType: 'integer',
+          refTable: 'orders',
+          refColumn: 'id',
+        }),
         column({ id: 'c-i-sku', name: 'sku', position: 3 }),
       ],
     },
@@ -164,8 +207,14 @@ describe('RecordDetailPage', () => {
   beforeEach(() => {
     getDatasourceSchema.mockReset();
     getTableRecord.mockReset();
+    updateTableRecord.mockReset();
+    updateTableRecord.mockResolvedValue({
+      row: { key: 'k-cust-42', values: {} },
+    });
     getDatasourceSchema.mockResolvedValue(SCHEMA);
     serveRecords();
+    // Default to a read-only member: no edit affordance unless a test opts in.
+    roleHolder.role = 'member';
   });
 
   it('renders the field list with badges, muted NULL and the resolved FK link', async () => {
@@ -208,7 +257,9 @@ describe('RecordDetailPage', () => {
       await screen.findByText('email', { selector: 'dt' })
     ).closest('div');
     expect(emailRow).not.toBeNull();
-    expect(within(emailRow as HTMLElement).getByText('PII')).toBeInTheDocument();
+    expect(
+      within(emailRow as HTMLElement).getByText('PII'),
+    ).toBeInTheDocument();
     expect(
       within(emailRow as HTMLElement).getByText('ada@example.test'),
     ).toBeInTheDocument();
@@ -217,9 +268,7 @@ describe('RecordDetailPage', () => {
   it('shows one linked-records panel per incoming relation, with count and rows', async () => {
     renderPage(`${BASE}/data/tables/t-orders/records/k-order-7`);
 
-    const panel = (
-      await screen.findByText(/via order_id/)
-    ).closest('section');
+    const panel = (await screen.findByText(/via order_id/)).closest('section');
     expect(panel).not.toBeNull();
     const scoped = within(panel as HTMLElement);
     expect(scoped.getByText('3')).toBeInTheDocument();
@@ -288,5 +337,42 @@ describe('RecordDetailPage', () => {
         'This table has no primary key — records cannot be addressed individually',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('hides the Edit action from a read-only member', async () => {
+    roleHolder.role = 'member';
+    renderPage(`${BASE}/data/tables/t-customers/records/k-cust-42`);
+
+    await screen.findByRole('heading', { level: 1 });
+    expect(
+      screen.queryByRole('button', { name: /edit/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('lets an owner edit a field and sends only the changed column', async () => {
+    roleHolder.role = 'owner';
+    updateTableRecord.mockResolvedValue({
+      row: { key: 'k-cust-42', values: { id: 42, email: 'new@example.test' } },
+    });
+    const user = userEvent.setup();
+    renderPage(`${BASE}/data/tables/t-customers/records/k-cust-42`);
+
+    await user.click(await screen.findByRole('button', { name: /edit/i }));
+    // The PK is read-only; the email input is seeded from the loaded value.
+    const emailInput = screen.getByLabelText('email');
+    await user.clear(emailInput);
+    await user.type(emailInput, 'new@example.test');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(updateTableRecord).toHaveBeenCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-customers',
+        'k-cust-42',
+        { set: { email: 'new@example.test' } },
+      ),
+    );
   });
 });
