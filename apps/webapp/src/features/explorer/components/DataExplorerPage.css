@@ -19,7 +19,7 @@
 
 /* The switcher tabs sit flush on the header's bottom border. */
 .data-explorer__header .tab-filter {
-  border-bottom: none;
+  box-shadow: none;
   margin-bottom: calc(-1 * var(--space-2) - var(--border-width));
 }
 
