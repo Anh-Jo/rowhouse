@@ -3,7 +3,7 @@
 Rowhouse is a governed database workspace for ops, support and dev teams of
 startups/SMBs: a premium, multi-device explorer and safe editor on top of
 production databases, with an embedded AI agent (later phases) that works
-*inside* the governance layer, never around it. Built on the
+_inside_ the governance layer, never around it. Built on the
 `nest-starter-pack` stack: NestJS 11 + Fastify, React 19 + Vite, Prisma +
 PostgreSQL (app DB), OpenAPI → generated frontend types, Zod everywhere,
 `pnpm verify` as the single quality gate.
@@ -23,12 +23,13 @@ server / second engine / self-host packaging (P5), billing.
 
 ## Phase index
 
-| Phase | Plan                                             | Branch               | Delivers                                             |
-| ----- | ------------------------------------------------ | -------------------- | ---------------------------------------------------- |
-| 0     | [phase-0-foundation.md](./phase-0-foundation.md) | `feat/foundation`    | Bootstrap + multi-tenant + datasources + audit core  |
-| 1     | phase-1-explorer.md (to write at phase start)    | `feat/explorer-read` | Premium read explorer (grid, relations, saved views) |
-| 2     | phase-2-safe-edit.md (to write at phase start)   | `feat/safe-edit`     | Single edit, RBAC, PII masking, approvals            |
-| 3+    | planned after V1 feedback                        | —                    | AI analyst, governed agents, MCP, MySQL/MariaDB      |
+| Phase | Plan                                                 | Branch                    | Delivers                                              |
+| ----- | ---------------------------------------------------- | ------------------------- | ----------------------------------------------------- |
+| 0     | [phase-0-foundation.md](./phase-0-foundation.md)     | `feat/foundation`         | Bootstrap + multi-tenant + datasources + audit core   |
+| 1     | [phase-1-explorer.md](./phase-1-explorer.md)         | `feat/explorer-*`         | Premium read explorer (grid, relations, filters/sort) |
+| 1.5   | [phase-1.5-connectors.md](./phase-1.5-connectors.md) | `feat/connection-methods` | Connection methods (D12): Direct TLS + Cloud SQL IAM  |
+| 2     | [phase-2-safe-edit.md](./phase-2-safe-edit.md)       | `feat/safe-edit`          | Single edit, RBAC, approvals                          |
+| 3+    | planned after V1 feedback                            | —                         | AI analyst, governed agents, MCP, MySQL/MariaDB       |
 
 Each phase plan is written **at the start of its own session**, following the
 skeleton in this folder's upstream `nest-starter-pack` docs — except phase 0,
@@ -117,7 +118,8 @@ already written.
   decision D10; never logged, never serialized).
 - `SchemaTable` / `SchemaColumn` — persisted introspection snapshot
   (relations, PK/FK, types, nullability) + team-editable metadata
-  (description, PII flag — the PII flag feeds P2 masking).
+  (description, PII flag — plain metadata today; sensitivity-based masking is
+  deferred to a later table-level feature with audited reveal, not P2).
 - `AuditEvent` — append-only: actor, workspace, datasource, connection role,
   statement fingerprint + params digest, row count, duration, status,
   `approvedBy` (nullable, used from P2).

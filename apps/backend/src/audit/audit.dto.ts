@@ -13,7 +13,7 @@ const AuditEventSchema = z.object({
     .nullable()
     .describe('Connection role the execution used'),
   action: z
-    .enum(['CONNECTION_TEST', 'INTROSPECT', 'READ'])
+    .enum(['CONNECTION_TEST', 'INTROSPECT', 'READ', 'WRITE'])
     .describe('What kind of execution was journaled'),
   statement: z
     .string()

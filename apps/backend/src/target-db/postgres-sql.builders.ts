@@ -191,6 +191,42 @@ export function buildGetRow(options: {
   };
 }
 
+/**
+ * Single-record UPDATE by full primary key (composite supported). SET and PK
+ * identifiers come from the introspection snapshot and are quoted; every value
+ * — the new column values and the PK values — is parameterized. The caller
+ * guarantees `set` is non-empty and disjoint from the PK. `RETURNING` echoes
+ * the persisted columns so the write path both counts affected rows (the PK
+ * predicate makes that 0 or 1) and hands back the new row without a re-read.
+ */
+export function buildUpdateRow(options: {
+  table: TableRef;
+  columns: string[];
+  pkColumns: string[];
+  pkValues: unknown[];
+  set: { column: string; value: unknown }[];
+}): SqlStatement {
+  const params: unknown[] = [];
+  const nextParam = (value: unknown): string => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const setClause = options.set
+    .map(({ column, value }) => `${quoteIdent(column)} = ${nextParam(value)}`)
+    .join(', ');
+  const where = options.pkColumns
+    .map(
+      (column, index) =>
+        `${quoteIdent(column)} = ${nextParam(options.pkValues[index])}`,
+    )
+    .join(' AND ');
+  const returning = options.columns.map(quoteIdent).join(', ');
+  return {
+    sql: `UPDATE ${quoteTable(options.table)} SET ${setClause} WHERE ${where} RETURNING ${returning}`,
+    params,
+  };
+}
+
 /** Rows of `table` whose `viaColumn` points at a given value (incoming FK). */
 export function buildListReferencing(options: {
   table: TableRef;

@@ -1,20 +1,39 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, FileQuestion } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  FileQuestion,
+  Pencil,
+  Save,
+} from 'lucide-react';
 import { Badge } from '@/components/Badge/Badge';
+import { Button } from '@/components/Button/Button';
 import { Callout } from '@/components/Callout/Callout';
 import { Card } from '@/components/Card/Card';
 import { DataTable, type Column } from '@/components/DataTable/DataTable';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { Input } from '@/components/Input/Input';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { Skeleton } from '@/components/Skeleton/Skeleton';
 import { ApiError } from '@/api/errors';
-import { getTableRecord, type RecordDetailDto } from '@/api/explorer';
+import {
+  getTableRecord,
+  updateTableRecord,
+  type RecordDetailDto,
+  type UpdateRecordInput,
+} from '@/api/explorer';
 import { explorerKeys, schemaKeys } from '@/api/query-keys';
 import { getDatasourceSchema, type SchemaTableDto } from '@/api/schema';
 import { useWorkspaceId } from '@/hooks/useWorkspaceId';
+import { canEditRecords, useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { describeCellValue } from '../helpers/cell-value';
-import { describePkIdentity, describeRowIdentity } from '../helpers/row-identity';
+import {
+  describePkIdentity,
+  describeRowIdentity,
+} from '../helpers/row-identity';
 import './RecordDetailPage.css';
 
 /** Record path for a row of a table — one place builds it for every link. */
@@ -69,7 +88,9 @@ function ReferenceLink({
       to={recordPath(basePath, reference.tableId, row.key)}
     >
       <ArrowRight size={13} aria-hidden /> {reference.tableName}
-      {identity && <span className="record-fields__ref-identity"> · {identity}</span>}
+      {identity && (
+        <span className="record-fields__ref-identity"> · {identity}</span>
+      )}
     </Link>
   );
 }
@@ -161,7 +182,10 @@ function RelatedPanel({
     render: (row) => {
       const display = describeCellValue(row.values[name]);
       return (
-        <span className={`cell-value cell-value--${display.kind}`} title={display.title}>
+        <span
+          className={`cell-value cell-value--${display.kind}`}
+          title={display.title}
+        >
           {display.text}
         </span>
       );
@@ -210,6 +234,184 @@ function RelatedPanel({
   );
 }
 
+/** Text form of a cell value for an `<input>`; null/undefined → empty. */
+function toInputValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * Inline single-record editor: every non-PK column becomes an input, the PK
+ * stays read-only (identity is not editable here). A live diff of the pending
+ * changes sits in the footer; Save sends only the changed columns as one
+ * governed, audited write. Server errors (403 without the capability, 409
+ * multi-row, 404 gone) surface inline — the button guard is UX only, the
+ * server stays the authority.
+ */
+function EditRecordForm({
+  table,
+  record,
+  ids,
+  onCancel,
+  onSaved,
+}: {
+  table: SchemaTableDto;
+  record: RecordDetailDto;
+  ids: {
+    workspaceId: string;
+    projectId: string;
+    datasourceId: string;
+    tableId: string;
+    rowKey: string;
+  };
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const orderedColumns = [...table.columns].sort(
+    (a, b) => a.position - b.position,
+  );
+  const editableColumns = orderedColumns.filter(
+    (column) => !column.isPrimaryKey,
+  );
+
+  const defaults: Record<string, string> = {};
+  for (const column of editableColumns) {
+    defaults[column.name] = toInputValue(record.row.values[column.name]);
+  }
+
+  const { register, handleSubmit, control } = useForm<Record<string, string>>({
+    defaultValues: defaults,
+  });
+  const current = useWatch({ control });
+
+  // Only columns whose input differs from the loaded value count as changes.
+  const changes = editableColumns
+    .map((column) => ({
+      name: column.name,
+      before: defaults[column.name],
+      after: current[column.name] ?? defaults[column.name],
+    }))
+    .filter((change) => change.after !== change.before);
+
+  const mutation = useMutation({
+    mutationFn: (input: UpdateRecordInput) =>
+      updateTableRecord(
+        ids.workspaceId,
+        ids.projectId,
+        ids.datasourceId,
+        ids.tableId,
+        ids.rowKey,
+        input,
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: explorerKeys.record(
+          ids.workspaceId,
+          ids.projectId,
+          ids.datasourceId,
+          ids.tableId,
+          ids.rowKey,
+        ),
+      });
+      // The grid shows the same values — refresh every refinement variant.
+      void queryClient.invalidateQueries({
+        queryKey: [
+          'explorer-rows',
+          ids.workspaceId,
+          ids.projectId,
+          ids.datasourceId,
+          ids.tableId,
+        ],
+      });
+      onSaved();
+    },
+  });
+
+  const onSubmit = (values: Record<string, string>) => {
+    const set: Record<string, string | null> = {};
+    for (const column of editableColumns) {
+      const after = values[column.name] ?? '';
+      if (after !== defaults[column.name]) {
+        set[column.name] = after === '' ? null : after;
+      }
+    }
+    if (Object.keys(set).length === 0) return;
+    mutation.mutate({ set });
+  };
+
+  return (
+    <form className="record-edit" onSubmit={handleSubmit(onSubmit)}>
+      <dl className="record-fields record-fields--editing">
+        {orderedColumns.map((column) => (
+          <div className="record-fields__row" key={column.id}>
+            <dt className="record-fields__label">
+              {column.name}
+              {column.isPrimaryKey && <Badge label="PK" variant="info" />}
+              {column.isPii && <Badge label="PII" variant="pii" />}
+            </dt>
+            <dd className="record-fields__value">
+              {column.isPrimaryKey ? (
+                <FieldValue value={record.row.values[column.name]} />
+              ) : (
+                <Input aria-label={column.name} {...register(column.name)} />
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {mutation.error && (
+        <Callout variant="danger" title="Could not save your changes">
+          {mutation.error instanceof ApiError
+            ? mutation.error.message
+            : 'Something went wrong applying the edit.'}
+        </Callout>
+      )}
+
+      <div className="record-edit__footer">
+        <div className="record-edit__changes">
+          {changes.length === 0 ? (
+            <span className="record-edit__no-changes">No changes yet</span>
+          ) : (
+            changes.map((change) => (
+              <span className="record-edit__change" key={change.name}>
+                <span className="record-edit__change-col">{change.name}</span>
+                <span className="record-edit__change-before">
+                  {change.before === '' ? '∅' : change.before}
+                </span>
+                <ArrowRight size={12} aria-hidden />
+                <span className="record-edit__change-after">
+                  {change.after === '' ? '∅' : change.after}
+                </span>
+              </span>
+            ))
+          )}
+        </div>
+        <div className="record-edit__actions">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={mutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            icon={<Save size={15} />}
+            disabled={changes.length === 0 || mutation.isPending}
+          >
+            {mutation.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
 function RecordSkeleton() {
   return (
     <div className="record-detail__inner" aria-hidden>
@@ -237,11 +439,19 @@ function RecordDetailPage() {
     rowKey = '',
   } = useParams();
   const { workspaceId } = useWorkspaceId();
+  const { role } = useWorkspaceRole(workspaceId);
+  const [isEditing, setIsEditing] = useState(false);
+  const canEdit = canEditRecords(role);
 
   const enabled = workspaceId !== null;
   const schemaQuery = useQuery({
-    queryKey: schemaKeys.byDatasource(workspaceId ?? '', projectId, datasourceId),
-    queryFn: () => getDatasourceSchema(workspaceId ?? '', projectId, datasourceId),
+    queryKey: schemaKeys.byDatasource(
+      workspaceId ?? '',
+      projectId,
+      datasourceId,
+    ),
+    queryFn: () =>
+      getDatasourceSchema(workspaceId ?? '', projectId, datasourceId),
     enabled,
   });
   const recordQuery = useQuery({
@@ -253,7 +463,13 @@ function RecordDetailPage() {
       rowKey,
     ),
     queryFn: () =>
-      getTableRecord(workspaceId ?? '', projectId, datasourceId, tableId, rowKey),
+      getTableRecord(
+        workspaceId ?? '',
+        projectId,
+        datasourceId,
+        tableId,
+        rowKey,
+      ),
     enabled,
   });
 
@@ -277,7 +493,10 @@ function RecordDetailPage() {
     );
   }
 
-  if (recordQuery.error instanceof ApiError && recordQuery.error.status === 404) {
+  if (
+    recordQuery.error instanceof ApiError &&
+    recordQuery.error.status === 404
+  ) {
     return (
       <div className="record-detail">
         <div className="record-detail__inner">
@@ -331,20 +550,45 @@ function RecordDetailPage() {
             </span>
           }
           subtitle={rowIdentity !== pkIdentity ? rowIdentity : undefined}
+          actions={
+            canEdit && !isEditing ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Pencil size={15} />}
+                onClick={() => setIsEditing(true)}
+              >
+                Edit
+              </Button>
+            ) : undefined
+          }
         />
         <div className="record-detail__fields">
-          <FieldList
-            table={table}
-            tables={tables}
-            record={record}
-            basePath={basePath}
-          />
+          {isEditing ? (
+            <EditRecordForm
+              table={table}
+              record={record}
+              ids={{
+                workspaceId: workspaceId ?? '',
+                projectId,
+                datasourceId,
+                tableId,
+                rowKey,
+              }}
+              onCancel={() => setIsEditing(false)}
+              onSaved={() => setIsEditing(false)}
+            />
+          ) : (
+            <FieldList
+              table={table}
+              tables={tables}
+              record={record}
+              basePath={basePath}
+            />
+          )}
         </div>
         {record.referencedBy.length > 0 && (
-          <section
-            className="record-related"
-            aria-label="Linked records"
-          >
+          <section className="record-related" aria-label="Linked records">
             <h2 className="record-related__heading">Linked records</h2>
             {record.referencedBy.map((entry) => (
               <RelatedPanel

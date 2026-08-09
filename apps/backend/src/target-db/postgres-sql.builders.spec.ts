@@ -3,6 +3,7 @@ import {
   buildGetRow,
   buildListReferencing,
   buildListRows,
+  buildUpdateRow,
   decodeRowKey,
   encodeRowKey,
   escapeLikeValue,
@@ -233,6 +234,51 @@ describe('postgres-sql.builders', () => {
         `WHERE "id" >= $1 AND ("created_at"::text ILIKE '%' || $2 || '%') AND ("created_at", "id") < ($3, $4)`,
       );
       expect(params).toEqual([1, 'x', '2026-01-03T00:00:00.000Z', 3]);
+    });
+  });
+
+  describe('buildUpdateRow', () => {
+    it('sets snapshot columns, filters on the full PK, and RETURNs the row', () => {
+      const { sql, params } = buildUpdateRow({
+        table: { schema: 'public', name: 'customers' },
+        columns: ['id', 'email', 'name'],
+        pkColumns: ['id'],
+        pkValues: [9],
+        set: [{ column: 'email', value: 'new@example.test' }],
+      });
+      expect(sql).toBe(
+        'UPDATE "public"."customers" SET "email" = $1 WHERE "id" = $2 ' +
+          'RETURNING "id", "email", "name"',
+      );
+      // SET values are parameterized first, then the PK values.
+      expect(params).toEqual(['new@example.test', 9]);
+    });
+
+    it('numbers every SET value before the composite-PK conditions', () => {
+      const { sql, params } = buildUpdateRow({
+        table: { schema: 'public', name: 'order_items' },
+        columns: ['order_id', 'product_id', 'quantity'],
+        pkColumns: ['order_id', 'product_id'],
+        pkValues: [7, 3],
+        set: [
+          { column: 'quantity', value: 5 },
+          { column: 'product_id', value: 3 },
+        ],
+      });
+      expect(sql).toContain('SET "quantity" = $1, "product_id" = $2');
+      expect(sql).toContain('WHERE "order_id" = $3 AND "product_id" = $4');
+      expect(params).toEqual([5, 3, 7, 3]);
+    });
+
+    it('quotes hostile identifiers so they cannot break out of the statement', () => {
+      const { sql } = buildUpdateRow({
+        table: { schema: 'public', name: 'we"ird' },
+        columns: ['id'],
+        pkColumns: ['id'],
+        pkValues: [1],
+        set: [{ column: 'a"b', value: 'x' }],
+      });
+      expect(sql).toContain('UPDATE "public"."we""ird" SET "a""b" = $1');
     });
   });
 

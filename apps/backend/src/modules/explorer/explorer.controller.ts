@@ -1,9 +1,24 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiParam } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { CurrentUser, CurrentWorkspace } from '@/auth/decorators';
 import { WorkspaceMemberGuard } from '@/auth/workspace.guard';
-import { ListRowsQueryDto, RecordDetailDto, RowPageDto } from './explorer.dto';
+import { WorkspaceWriteGuard } from '@/auth/workspace-write.guard';
+import {
+  ListRowsQueryDto,
+  RecordDetailDto,
+  RowPageDto,
+  UpdateRecordDto,
+  UpdatedRecordDto,
+} from './explorer.dto';
 import { ExplorerService } from './explorer.service';
 
 /**
@@ -58,6 +73,34 @@ export class ExplorerController {
       tableId,
       rowKey,
       actorId,
+    );
+  }
+
+  /**
+   * Single-record edit. Behind WorkspaceWriteGuard (owner/admin only — a
+   * read-only member 403s) on top of the tree's membership guard; the write is
+   * one governed, audited WRITE on the READ_WRITE role.
+   */
+  @Patch('rows/:rowKey')
+  @UseGuards(WorkspaceWriteGuard)
+  @ZodResponse({ status: 200, type: UpdatedRecordDto })
+  updateRecord(
+    @CurrentWorkspace() workspaceId: string,
+    @Param('projectId') projectId: string,
+    @Param('datasourceId') datasourceId: string,
+    @Param('tableId') tableId: string,
+    @Param('rowKey') rowKey: string,
+    @CurrentUser() actorId: string,
+    @Body() body: UpdateRecordDto,
+  ): Promise<UpdatedRecordDto> {
+    return this.explorerService.updateRecord(
+      workspaceId,
+      projectId,
+      datasourceId,
+      tableId,
+      rowKey,
+      actorId,
+      body.set,
     );
   }
 }

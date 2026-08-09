@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { z } from 'zod';
 import { PrismaService } from '@/prisma/prisma.service';
 import { clampLimit } from '@/helpers/pagination';
+import { SingleRowWriteError } from '@/target-db/errors';
 import {
   FILTER_OPS,
   encodeRowKey,
@@ -379,6 +381,74 @@ export class ExplorerService {
       references,
       referencedBy,
     };
+  }
+
+  /**
+   * Applies a single-record UPDATE addressed by row key. The `set` columns are
+   * validated against the snapshot and must exclude the primary key (editing
+   * the PK is an identity change, out of scope for single-record edit). The
+   * write itself runs on the READ_WRITE role through the governed engine, which
+   * commits only a single-row change and audits exactly one WRITE event.
+   */
+  async updateRecord(
+    workspaceId: string,
+    projectId: string,
+    datasourceId: string,
+    tableId: string,
+    rowKey: string,
+    actorId: string,
+    set: Record<string, unknown>,
+  ): Promise<{ row: ExplorerRow }> {
+    const table = await this.resolveTable(
+      workspaceId,
+      projectId,
+      datasourceId,
+      tableId,
+    );
+    if (table.pkColumns.length === 0) {
+      throw new BadRequestException(
+        'This table has no primary key — records cannot be edited individually',
+      );
+    }
+    const pkColumns = new Set(table.pkColumns);
+    const entries = Object.entries(set);
+    for (const [column] of entries) {
+      if (!table.columns.includes(column)) {
+        throw new BadRequestException(`Unknown column "${column}"`);
+      }
+      if (pkColumns.has(column)) {
+        throw new BadRequestException(
+          `Primary key column "${column}" cannot be edited`,
+        );
+      }
+    }
+
+    const context = { workspaceId, actorId, datasourceId };
+    let values: Record<string, unknown> | null;
+    try {
+      values = await this.rowReader.updateRow(
+        context,
+        table,
+        rowKey,
+        entries.map(([column, value]) => ({ column, value })),
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Malformed cursor') {
+        throw new BadRequestException('Malformed row key');
+      }
+      if (error instanceof SingleRowWriteError) {
+        // The write matched more than one row — already rolled back and
+        // audited as ERROR by the engine; refuse rather than pretend it applied.
+        throw new ConflictException(
+          'Refusing to apply a write that matched more than one row',
+        );
+      }
+      throw error;
+    }
+    if (!values) {
+      throw new NotFoundException('Record not found');
+    }
+    return { row: { key: rowKey, values } };
   }
 
   private toKeyedRow(

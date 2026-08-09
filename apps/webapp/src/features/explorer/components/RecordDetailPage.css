@@ -169,3 +169,65 @@
     gap: var(--space-1);
   }
 }
+
+/* --- Inline single-record editor (P2 safe edit) --- */
+.record-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Trails the fields and stays reachable while scrolling a tall record. */
+.record-edit__footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.record-edit__changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-13);
+}
+
+.record-edit__no-changes {
+  color: var(--color-text-muted);
+}
+
+.record-edit__change {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-12);
+}
+
+.record-edit__change-col {
+  font-weight: var(--font-weight-semibold);
+}
+
+.record-edit__change-before {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.record-edit__change-after {
+  color: var(--color-accent-text);
+}
+
+.record-edit__actions {
+  display: flex;
+  gap: var(--space-2);
+}
