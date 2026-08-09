@@ -177,6 +177,36 @@
   gap: var(--space-4);
 }
 
+/* A vertical stack of labelled, type-aware controls (date/enum/boolean/…). */
+.record-edit__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 32rem;
+}
+
+/* The primary key is shown read-only — identity is not editable here. */
+.record-edit__pk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.record-edit__pk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.record-edit__pk-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-data);
+  color: var(--color-text-muted);
+}
+
 /* Trails the fields and stays reachable while scrolling a tall record. */
 .record-edit__footer {
   position: sticky;

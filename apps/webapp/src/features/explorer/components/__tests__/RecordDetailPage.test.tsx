@@ -39,6 +39,7 @@ function column(
     refColumn: null,
     description: null,
     isPii: false,
+    enumValues: [],
     ...overrides,
   };
 }
@@ -86,6 +87,25 @@ const SCHEMA: DatasourceSchemaDto = {
           isNullable: false,
         }),
         column({ id: 'c-c-email', name: 'email', position: 2, isPii: true }),
+        column({
+          id: 'c-c-signed',
+          name: 'signed_up_on',
+          position: 3,
+          dataType: 'date',
+        }),
+        column({
+          id: 'c-c-active',
+          name: 'active',
+          position: 4,
+          dataType: 'boolean',
+        }),
+        column({
+          id: 'c-c-status',
+          name: 'status',
+          position: 5,
+          dataType: 'USER-DEFINED',
+          enumValues: ['pending', 'paid', 'shipped'],
+        }),
       ],
     },
     {
@@ -144,7 +164,16 @@ const ORDER_RECORD: RecordDetailDto = {
 };
 
 const CUSTOMER_RECORD: RecordDetailDto = {
-  row: { key: 'k-cust-42', values: { id: 42, email: 'ada@example.test' } },
+  row: {
+    key: 'k-cust-42',
+    values: {
+      id: 42,
+      email: 'ada@example.test',
+      signed_up_on: '2026-01-02T00:00:00.000Z',
+      active: true,
+      status: 'paid',
+    },
+  },
   references: [],
   referencedBy: [],
 };
@@ -374,5 +403,29 @@ describe('RecordDetailPage', () => {
         { set: { email: 'new@example.test' } },
       ),
     );
+  });
+
+  it('renders the control that fits each column type in edit mode', async () => {
+    roleHolder.role = 'owner';
+    const user = userEvent.setup();
+    renderPage(`${BASE}/data/tables/t-customers/records/k-cust-42`);
+
+    await user.click(await screen.findByRole('button', { name: /edit/i }));
+
+    // Date column → a date picker, seeded from the ISO value (sliced to a day).
+    const signedUp = screen.getByLabelText('signed_up_on');
+    expect(signedUp).toHaveAttribute('type', 'date');
+    expect(signedUp).toHaveValue('2026-01-02');
+
+    // Boolean and enum columns → dropdowns (comboboxes), not text inputs.
+    expect(
+      screen.getByRole('combobox', { name: 'active' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'status' }),
+    ).toBeInTheDocument();
+
+    // The primary key stays read-only — no editable control is rendered for it.
+    expect(screen.queryByLabelText('id')).not.toBeInTheDocument();
   });
 });

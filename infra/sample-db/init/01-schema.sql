@@ -1,7 +1,7 @@
 -- Sample TARGET database — schema.
 -- A small but realistic e-commerce model, so the explorer and the connection
 -- guardrails are developed against real-world shapes: FK chains to navigate,
--- a CHECK-constrained status column, money-as-integer-cents, timestamps.
+-- a native-enum status column, money-as-integer-cents, timestamps.
 -- Runs first (lexicographic order) so 02-roles.sql can grant on existing
 -- tables and 03-seed.sql can insert. Executed against POSTGRES_DB=sampledb.
 
@@ -19,11 +19,14 @@ CREATE TABLE products (
   stock       integer NOT NULL DEFAULT 0 CHECK (stock >= 0)
 );
 
+-- Native Postgres enum (not a CHECK): introspection captures its labels so the
+-- typed record editor renders orders.status as a fixed-choice dropdown.
+CREATE TYPE order_status AS ENUM ('pending', 'paid', 'shipped', 'delivered', 'cancelled');
+
 CREATE TABLE orders (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   customer_id bigint NOT NULL REFERENCES customers (id),
-  status      text NOT NULL
-    CHECK (status IN ('pending', 'paid', 'shipped', 'delivered', 'cancelled')),
+  status      order_status NOT NULL DEFAULT 'pending',
   placed_at   timestamptz NOT NULL DEFAULT now()
 );
 

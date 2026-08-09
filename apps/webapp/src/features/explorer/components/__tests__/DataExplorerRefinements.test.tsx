@@ -9,11 +9,13 @@ import type { RowPageDto } from '@/api/explorer';
 import type { DatasourceSchemaDto, SchemaColumnDto } from '@/api/schema';
 import { DataExplorerPage } from '../DataExplorerPage';
 
-const { getDatasourceSchema, getDatasource, listTableRows } = vi.hoisted(() => ({
-  getDatasourceSchema: vi.fn<() => Promise<DatasourceSchemaDto>>(),
-  getDatasource: vi.fn<() => Promise<DatasourceDto>>(),
-  listTableRows: vi.fn<(...args: unknown[]) => Promise<RowPageDto>>(),
-}));
+const { getDatasourceSchema, getDatasource, listTableRows } = vi.hoisted(
+  () => ({
+    getDatasourceSchema: vi.fn<() => Promise<DatasourceSchemaDto>>(),
+    getDatasource: vi.fn<() => Promise<DatasourceDto>>(),
+    listTableRows: vi.fn<(...args: unknown[]) => Promise<RowPageDto>>(),
+  }),
+);
 
 vi.mock('@/api/schema', () => ({ getDatasourceSchema }));
 vi.mock('@/api/datasources', () => ({ getDatasource }));
@@ -34,6 +36,7 @@ function column(
     refColumn: null,
     description: null,
     isPii: false,
+    enumValues: [],
     ...overrides,
   };
 }
@@ -47,7 +50,14 @@ const SCHEMA: DatasourceSchemaDto = {
       name: 'orders',
       description: null,
       columns: [
-        column({ id: 'c-id', name: 'id', position: 1, isPrimaryKey: true, dataType: 'integer', isNullable: false }),
+        column({
+          id: 'c-id',
+          name: 'id',
+          position: 1,
+          isPrimaryKey: true,
+          dataType: 'integer',
+          isNullable: false,
+        }),
         column({ id: 'c-email', name: 'email', position: 2 }),
       ],
     },
@@ -116,17 +126,29 @@ describe('DataExplorerPage — grid refinements (slice C)', () => {
     const sortButton = screen.getByRole('button', { name: 'id' });
     await user.click(sortButton);
     expect(await screen.findByText('1 row loaded')).toBeInTheDocument();
-    expect(listTableRows).toHaveBeenLastCalledWith('ws-1', 'p-1', 'ds-1', 't-orders', {
-      cursor: undefined,
-      sort: 'id:asc',
-    });
+    expect(listTableRows).toHaveBeenLastCalledWith(
+      'ws-1',
+      'p-1',
+      'ds-1',
+      't-orders',
+      {
+        cursor: undefined,
+        sort: 'id:asc',
+      },
+    );
 
     await user.click(screen.getByRole('button', { name: 'id' }));
     await waitFor(() => {
-      expect(listTableRows).toHaveBeenLastCalledWith('ws-1', 'p-1', 'ds-1', 't-orders', {
-        cursor: undefined,
-        sort: 'id:desc',
-      });
+      expect(listTableRows).toHaveBeenLastCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-orders',
+        {
+          cursor: undefined,
+          sort: 'id:desc',
+        },
+      );
     });
 
     // Third click: back to the natural order — no sort param at all.
@@ -151,16 +173,26 @@ describe('DataExplorerPage — grid refinements (slice C)', () => {
 
     // The filter travels as the JSON string the backend parses.
     await waitFor(() => {
-      expect(listTableRows).toHaveBeenLastCalledWith('ws-1', 'p-1', 'ds-1', 't-orders', {
-        cursor: undefined,
-        filters: JSON.stringify([{ column: 'email', op: 'contains', value: '@gmail' }]),
-      });
+      expect(listTableRows).toHaveBeenLastCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-orders',
+        {
+          cursor: undefined,
+          filters: JSON.stringify([
+            { column: 'email', op: 'contains', value: '@gmail' },
+          ]),
+        },
+      );
     });
     expect(screen.getByText('email contains "@gmail"')).toBeInTheDocument();
 
     // Removing the chip refetches without the filter.
     await user.click(
-      screen.getByRole('button', { name: 'Remove filter email contains "@gmail"' }),
+      screen.getByRole('button', {
+        name: 'Remove filter email contains "@gmail"',
+      }),
     );
     await waitFor(() => {
       const lastOptions = listTableRows.mock.lastCall?.[4] as {
@@ -168,7 +200,9 @@ describe('DataExplorerPage — grid refinements (slice C)', () => {
       };
       expect(lastOptions.filters).toBeUndefined();
     });
-    expect(screen.queryByText('email contains "@gmail"')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('email contains "@gmail"'),
+    ).not.toBeInTheDocument();
   });
 
   it('debounces the search box into a single `search` request', async () => {
@@ -181,10 +215,16 @@ describe('DataExplorerPage — grid refinements (slice C)', () => {
     expect(refinedCalls('search')).toHaveLength(0);
 
     await waitFor(() => {
-      expect(listTableRows).toHaveBeenLastCalledWith('ws-1', 'p-1', 'ds-1', 't-orders', {
-        cursor: undefined,
-        search: 'gmail',
-      });
+      expect(listTableRows).toHaveBeenLastCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-orders',
+        {
+          cursor: undefined,
+          search: 'gmail',
+        },
+      );
     });
     // One request for five keystrokes.
     expect(refinedCalls('search')).toHaveLength(1);
@@ -209,12 +249,18 @@ describe('DataExplorerPage — grid refinements (slice C)', () => {
     );
 
     await waitFor(() => {
-      expect(listTableRows).toHaveBeenCalledWith('ws-1', 'p-1', 'ds-1', 't-orders', {
-        cursor: undefined,
-        filters,
-        sort: 'id:desc',
-        search: 'gmail',
-      });
+      expect(listTableRows).toHaveBeenCalledWith(
+        'ws-1',
+        'p-1',
+        'ds-1',
+        't-orders',
+        {
+          cursor: undefined,
+          filters,
+          sort: 'id:desc',
+          search: 'gmail',
+        },
+      );
     });
     // The controls reflect the URL: chip rendered, search box prefilled.
     expect(
@@ -230,8 +276,12 @@ describe('DataExplorerPage — grid refinements (slice C)', () => {
     const filters = JSON.stringify([{ column: 'bogus', op: 'eq', value: '1' }]);
     renderPage(`${TABLE_PATH}?filters=${encodeURIComponent(filters)}`);
 
-    expect(await screen.findByText('Invalid filter or sort')).toBeInTheDocument();
-    expect(screen.getByText('Unknown filter column "bogus"')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Invalid filter or sort'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Unknown filter column "bogus"'),
+    ).toBeInTheDocument();
     // The offending chip stays removable — the way out of the 400.
     expect(screen.getByText('bogus = "1"')).toBeInTheDocument();
     expect(

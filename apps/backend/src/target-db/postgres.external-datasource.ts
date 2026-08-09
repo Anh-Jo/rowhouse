@@ -19,6 +19,9 @@ type ColumnRow = {
   is_primary_key: boolean;
   fk_table: string | null;
   fk_column: string | null;
+  // Native-enum labels for the column's type, or NULL when it is not an enum
+  // (array_agg over the empty set is NULL, never an empty array).
+  enum_values: string[] | null;
 };
 
 /**
@@ -47,7 +50,8 @@ const INTROSPECT_SQL = `
     c.is_nullable,
     COALESCE(pk.is_primary_key, false) AS is_primary_key,
     fk.foreign_table_name AS fk_table,
-    fk.foreign_column_name AS fk_column
+    fk.foreign_column_name AS fk_column,
+    en.enum_values AS enum_values
   FROM information_schema.columns c
   JOIN information_schema.tables t
     ON t.table_schema = c.table_schema AND t.table_name = c.table_name
@@ -95,6 +99,21 @@ const INTROSPECT_SQL = `
   ) fk ON fk.table_schema = c.table_schema
       AND fk.table_name = c.table_name
       AND fk.column_name = c.column_name
+  LEFT JOIN LATERAL (
+    -- Native-enum labels for the column's type, in the enum's declared order.
+    -- information_schema.columns exposes the underlying type as udt_schema/
+    -- udt_name; pg_type + pg_enum turn that into the label set. Read from
+    -- pg_catalog for the same reason as the constraints above: it is readable
+    -- by the READ_ONLY role, so the enum choices match whatever role connects.
+    -- The aggregate always yields one row (NULL when the type has no labels),
+    -- so this never multiplies the column rows.
+    SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder) AS enum_values
+    FROM pg_catalog.pg_type typ
+    JOIN pg_catalog.pg_namespace tns ON tns.oid = typ.typnamespace
+    JOIN pg_catalog.pg_enum e ON e.enumtypid = typ.oid
+    WHERE typ.typname = c.udt_name
+      AND tns.nspname = c.udt_schema
+  ) en ON true
   WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema')
   ORDER BY c.table_schema, c.table_name, c.ordinal_position
 `;
@@ -120,6 +139,7 @@ export class PostgresExternalDatasource implements ExternalDatasource {
           raw.fk_table && raw.fk_column
             ? { table: raw.fk_table, column: raw.fk_column }
             : null,
+        enumValues: raw.enum_values ?? [],
       });
     }
     return { tables: [...tables.values()] };

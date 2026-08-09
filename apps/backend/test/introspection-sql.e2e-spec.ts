@@ -21,9 +21,14 @@ const SCHEMA_SQL = `
     id    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     email text NOT NULL UNIQUE
   );
+  -- Native enum: introspection must surface its labels in declared sort order
+  -- (the record editor renders them as a dropdown), while every non-enum column
+  -- reports an empty list.
+  CREATE TYPE order_status AS ENUM ('pending', 'paid', 'shipped', 'cancelled');
   CREATE TABLE orders (
     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    customer_id bigint NOT NULL REFERENCES customers (id)
+    customer_id bigint NOT NULL REFERENCES customers (id),
+    status      order_status NOT NULL DEFAULT 'pending'
   );
   -- Composite primary key: the shape a join table takes, and the one the
   -- privilege-filtered query used to miss along with every other PK.
@@ -95,6 +100,19 @@ function referencesOf(
   );
 }
 
+/** The captured enum labels of one column (empty when it is not an enum). */
+function enumValuesOf(
+  schema: IntrospectedSchema,
+  tableName: string,
+  columnName: string,
+): string[] {
+  return (
+    schema.tables
+      .find((table) => table.name === tableName)
+      ?.columns.find((column) => column.name === columnName)?.enumValues ?? []
+  );
+}
+
 describe('Postgres introspection SQL (real database)', () => {
   let pg: PGlite;
   let datasource: PostgresExternalDatasource;
@@ -159,6 +177,21 @@ describe('Postgres introspection SQL (real database)', () => {
       order_id: 'order_items.order_id',
       product_id: 'order_items.product_id',
     });
+  });
+
+  it('captures native enum labels in declared order, empty for non-enum columns', async () => {
+    const schema = await introspectAsReadOnlyRole();
+
+    // Declared order (pending, paid, shipped, cancelled), NOT alphabetical.
+    expect(enumValuesOf(schema, 'orders', 'status')).toEqual([
+      'pending',
+      'paid',
+      'shipped',
+      'cancelled',
+    ]);
+    // A plain column carries no choices — the editor keeps it a free field.
+    expect(enumValuesOf(schema, 'orders', 'id')).toEqual([]);
+    expect(enumValuesOf(schema, 'customers', 'email')).toEqual([]);
   });
 
   it('reports a genuinely key-less table as key-less', async () => {

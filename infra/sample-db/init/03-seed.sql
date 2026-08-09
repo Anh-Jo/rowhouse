@@ -31,13 +31,15 @@ FROM generate_series(1, 30) AS gs;
 INSERT INTO orders (customer_id, status, placed_at)
 SELECT
   ((gs * 17) % 50) + 1,
-  CASE
+  -- Cast to the enum type: the CASE resolves to text, and Postgres will not
+  -- implicitly coerce text into the order_status enum column.
+  (CASE
     WHEN gs % 20 < 2  THEN 'pending'
     WHEN gs % 20 < 7  THEN 'paid'
     WHEN gs % 20 < 11 THEN 'shipped'
     WHEN gs % 20 < 18 THEN 'delivered'
     ELSE 'cancelled'
-  END,
+  END)::order_status,
   timestamptz '2024-07-01 09:00:00+00' + (gs - 1) * interval '27 hours 30 minutes'
 FROM generate_series(1, 200) AS gs;
 

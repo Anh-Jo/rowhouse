@@ -17,6 +17,7 @@ type ColumnBody = {
   id: string;
   name: string;
   dataType: string;
+  enumValues: string[];
   isPii: boolean;
   description: string | null;
   refTable: string | null;
@@ -39,6 +40,7 @@ function catalogRow(
     fk_table: string;
     fk_column: string;
     is_nullable: 'YES' | 'NO';
+    enum_values: string[];
   }>,
 ) {
   return {
@@ -50,6 +52,7 @@ function catalogRow(
     is_primary_key: options?.is_primary_key ?? false,
     fk_table: options?.fk_table ?? null,
     fk_column: options?.fk_column ?? null,
+    enum_values: options?.enum_values ?? null,
   };
 }
 
@@ -182,6 +185,10 @@ describe('Introspection (e2e)', () => {
         fk_table: 'customers',
         fk_column: 'id',
       }),
+      catalogRow('orders', 'status', 'USER-DEFINED', {
+        is_nullable: 'NO',
+        enum_values: ['pending', 'paid', 'shipped', 'cancelled'],
+      }),
     ];
 
     const sync = await request(app.getHttpServer())
@@ -204,6 +211,14 @@ describe('Introspection (e2e)', () => {
     expect(
       orders?.columns.find((c) => c.name === 'customer_id')?.refTable,
     ).toBe('customers');
+    // The native enum's labels are persisted and exposed for the dropdown…
+    expect(
+      orders?.columns.find((c) => c.name === 'status')?.enumValues,
+    ).toEqual(['pending', 'paid', 'shipped', 'cancelled']);
+    // …and a non-enum column carries an empty list.
+    expect(
+      orders?.columns.find((c) => c.name === 'customer_id')?.enumValues,
+    ).toEqual([]);
     expect(body.syncedAt).not.toBeNull();
   });
 

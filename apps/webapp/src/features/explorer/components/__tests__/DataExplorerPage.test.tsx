@@ -8,11 +8,13 @@ import type { RowPageDto } from '@/api/explorer';
 import type { DatasourceSchemaDto, SchemaColumnDto } from '@/api/schema';
 import { DataExplorerPage } from '../DataExplorerPage';
 
-const { getDatasourceSchema, getDatasource, listTableRows } = vi.hoisted(() => ({
-  getDatasourceSchema: vi.fn<() => Promise<DatasourceSchemaDto>>(),
-  getDatasource: vi.fn<() => Promise<DatasourceDto>>(),
-  listTableRows: vi.fn<(...args: unknown[]) => Promise<RowPageDto>>(),
-}));
+const { getDatasourceSchema, getDatasource, listTableRows } = vi.hoisted(
+  () => ({
+    getDatasourceSchema: vi.fn<() => Promise<DatasourceSchemaDto>>(),
+    getDatasource: vi.fn<() => Promise<DatasourceDto>>(),
+    listTableRows: vi.fn<(...args: unknown[]) => Promise<RowPageDto>>(),
+  }),
+);
 
 vi.mock('@/api/schema', () => ({ getDatasourceSchema }));
 vi.mock('@/api/datasources', () => ({ getDatasource }));
@@ -21,7 +23,10 @@ vi.mock('@/hooks/useWorkspaceId', () => ({
   useWorkspaceId: () => ({ workspaceId: 'ws-1', isPending: false }),
 }));
 
-function column(overrides: Partial<SchemaColumnDto> & Pick<SchemaColumnDto, 'id' | 'name' | 'position'>): SchemaColumnDto {
+function column(
+  overrides: Partial<SchemaColumnDto> &
+    Pick<SchemaColumnDto, 'id' | 'name' | 'position'>,
+): SchemaColumnDto {
   return {
     dataType: 'text',
     isNullable: true,
@@ -30,6 +35,7 @@ function column(overrides: Partial<SchemaColumnDto> & Pick<SchemaColumnDto, 'id'
     refColumn: null,
     description: null,
     isPii: false,
+    enumValues: [],
     ...overrides,
   };
 }
@@ -43,10 +49,27 @@ const SCHEMA: DatasourceSchemaDto = {
       name: 'orders',
       description: null,
       columns: [
-        column({ id: 'c-id', name: 'id', position: 1, isPrimaryKey: true, dataType: 'integer', isNullable: false }),
-        column({ id: 'c-paid', name: 'paid', position: 2, dataType: 'boolean' }),
+        column({
+          id: 'c-id',
+          name: 'id',
+          position: 1,
+          isPrimaryKey: true,
+          dataType: 'integer',
+          isNullable: false,
+        }),
+        column({
+          id: 'c-paid',
+          name: 'paid',
+          position: 2,
+          dataType: 'boolean',
+        }),
         column({ id: 'c-email', name: 'email', position: 3, isPii: true }),
-        column({ id: 'c-created', name: 'created_at', position: 4, dataType: 'timestamptz' }),
+        column({
+          id: 'c-created',
+          name: 'created_at',
+          position: 4,
+          dataType: 'timestamptz',
+        }),
       ],
     },
     {
@@ -193,9 +216,15 @@ describe('DataExplorerPage', () => {
     const emailHeader = screen.getByRole('columnheader', { name: /^email/ });
     expect(within(emailHeader).getByText('PII')).toBeInTheDocument();
 
-    expect(listTableRows).toHaveBeenCalledWith('ws-1', 'p-1', 'ds-1', 't-orders', {
-      cursor: undefined,
-    });
+    expect(listTableRows).toHaveBeenCalledWith(
+      'ws-1',
+      'p-1',
+      'ds-1',
+      't-orders',
+      {
+        cursor: undefined,
+      },
+    );
   });
 
   it('shows a foreign key on the column header, linking to the referenced table', async () => {

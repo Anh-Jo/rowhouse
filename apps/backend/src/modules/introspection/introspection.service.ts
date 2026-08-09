@@ -114,6 +114,7 @@ export class IntrospectionService {
                   isPrimaryKey: column.isPrimaryKey,
                   refTable: column.references?.table ?? null,
                   refColumn: column.references?.column ?? null,
+                  enumValues: column.enumValues,
                   position,
                 })),
               },
@@ -146,6 +147,9 @@ export class IntrospectionService {
             isPrimaryKey: column.isPrimaryKey,
             refTable: column.references?.table ?? null,
             refColumn: column.references?.column ?? null,
+            // DB-derived like dataType — refreshed on every sync, not preserved
+            // like the team-authored description/isPii metadata.
+            enumValues: column.enumValues,
             position,
           };
           const currentColumn = currentColumns.get(column.name);
