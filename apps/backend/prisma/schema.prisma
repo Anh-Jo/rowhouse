@@ -222,6 +222,9 @@ model SchemaColumn {
   refTable     String?
   refColumn    String?
   position     Int
+  /// Native-enum labels in declared sort order; empty for non-enum columns.
+  /// Sync-owned like the other structure fields — refreshed on every re-sync.
+  enumValues   String[]    @default([])
   description  String?
   isPii        Boolean     @default(false)
 

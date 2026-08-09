@@ -44,6 +44,18 @@ describe('PostgresExternalDatasource', () => {
         is_primary_key: false,
         fk_table: 'customers',
         fk_column: 'id',
+        enum_values: null,
+      },
+      {
+        table_schema: 'public',
+        table_name: 'orders',
+        column_name: 'status',
+        data_type: 'USER-DEFINED',
+        is_nullable: 'NO',
+        is_primary_key: false,
+        fk_table: null,
+        fk_column: null,
+        enum_values: ['pending', 'paid', 'shipped'],
       },
     ]);
     const datasource = new PostgresExternalDatasource();
@@ -59,6 +71,8 @@ describe('PostgresExternalDatasource', () => {
         isNullable: false,
         isPrimaryKey: true,
         references: null,
+        // Non-enum rows arrive with a NULL (or absent) label array -> [].
+        enumValues: [],
       },
       {
         name: 'customer_id',
@@ -66,6 +80,16 @@ describe('PostgresExternalDatasource', () => {
         isNullable: true,
         isPrimaryKey: false,
         references: { table: 'customers', column: 'id' },
+        enumValues: [],
+      },
+      {
+        // A native enum surfaces its labels in declared order.
+        name: 'status',
+        dataType: 'USER-DEFINED',
+        isNullable: false,
+        isPrimaryKey: false,
+        references: null,
+        enumValues: ['pending', 'paid', 'shipped'],
       },
     ]);
   });

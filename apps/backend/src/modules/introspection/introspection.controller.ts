@@ -31,6 +31,7 @@ function toColumnDto(column: SchemaColumn) {
     id: column.id,
     name: column.name,
     dataType: column.dataType,
+    enumValues: column.enumValues,
     isNullable: column.isNullable,
     isPrimaryKey: column.isPrimaryKey,
     refTable: column.refTable,

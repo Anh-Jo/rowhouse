@@ -5,6 +5,11 @@ const SchemaColumnSchema = z.object({
   id: z.string().describe('Column id'),
   name: z.string().describe('Column name'),
   dataType: z.string().describe('Engine data type (e.g. integer, text)'),
+  enumValues: z
+    .array(z.string())
+    .describe(
+      'Allowed values when the column is a native enum; empty otherwise',
+    ),
   isNullable: z.boolean().describe('Whether NULL is allowed'),
   isPrimaryKey: z.boolean().describe('Primary-key membership'),
   refTable: z

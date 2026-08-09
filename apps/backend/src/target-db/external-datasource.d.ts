@@ -13,6 +13,12 @@ export type IntrospectedColumn = {
   isPrimaryKey: boolean;
   /** Present when the column is a foreign key to another table. */
   references: { table: string; column: string } | null;
+  /**
+   * Labels of the column's native enum, in the enum's declared sort order;
+   * `[]` when the column is not a native enum. Lets the editor render an
+   * enum column as a fixed-choice dropdown instead of a free text field.
+   */
+  enumValues: string[];
 };
 
 export type IntrospectedTable = {
