@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { SingleRowWriteError } from './errors';
 import type { TargetConnection } from './target-connection.factory';
 import type {
   ExternalDatasource,
   IntrospectedSchema,
   IntrospectedTable,
   ReadResult,
+  WriteResult,
 } from './external-datasource.d.ts';
 
 /** Raw shape of one row of the column catalog query below. */
@@ -130,5 +132,31 @@ export class PostgresExternalDatasource implements ExternalDatasource {
   ): Promise<ReadResult> {
     const result = await connection.query(sql, params);
     return { rows: result.rows, rowCount: result.rows.length };
+  }
+
+  /**
+   * A single-record write, wrapped in a transaction so the single-row invariant
+   * is enforced atomically: the statement must carry a full-PK predicate and a
+   * `RETURNING`, so `rows.length` is the affected count. Zero rows commit as a
+   * no-op (the record simply did not exist); more than one can only come from a
+   * builder bug, so we roll back and refuse rather than let it persist.
+   */
+  async executeWrite(
+    connection: TargetConnection,
+    sql: string,
+    params: unknown[],
+  ): Promise<WriteResult> {
+    await connection.query('BEGIN');
+    try {
+      const result = await connection.query(sql, params);
+      if (result.rows.length > 1) {
+        throw new SingleRowWriteError(result.rows.length);
+      }
+      await connection.query('COMMIT');
+      return { rows: result.rows, rowCount: result.rows.length };
+    } catch (error) {
+      await connection.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    }
   }
 }

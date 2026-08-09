@@ -4,6 +4,7 @@ import {
   buildGetRow,
   buildListReferencing,
   buildListRows,
+  buildUpdateRow,
   decodeRowKey,
   encodeRowKey,
   type RowFilter,
@@ -120,6 +121,36 @@ export class RowReader {
       pkValues,
     });
     const result = await this.engine.executeRead(
+      context,
+      statement.sql,
+      statement.params,
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : RowReader.serializeRow(row);
+  }
+
+  /**
+   * Applies a single-record UPDATE addressed by row key (the encoded PK) and
+   * returns the persisted row, or null when nothing matched (the record is
+   * gone). The `set` entries are snapshot columns disjoint from the PK — the
+   * caller validates that; here they are quoted and parameterized. One
+   * governed, audited WRITE on the READ_WRITE role.
+   */
+  async updateRow(
+    context: ExecutionContext,
+    table: TableShape,
+    rowKey: string,
+    set: { column: string; value: unknown }[],
+  ): Promise<Record<string, unknown> | null> {
+    const pkValues = decodeRowKey(rowKey, table.pkColumns.length);
+    const statement = buildUpdateRow({
+      table,
+      columns: table.columns,
+      pkColumns: table.pkColumns,
+      pkValues,
+      set,
+    });
+    const result = await this.engine.executeWrite(
       context,
       statement.sql,
       statement.params,

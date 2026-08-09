@@ -182,6 +182,7 @@ enum AuditAction {
   CONNECTION_TEST
   INTROSPECT
   READ
+  WRITE
 }
 
 enum AuditStatus {

@@ -85,3 +85,25 @@ const RecordDetailSchema = z.object({
 });
 
 export class RecordDetailDto extends createZodDto(RecordDetailSchema) {}
+
+const UpdateRecordSchema = z.object({
+  set: z
+    .record(
+      z.string(),
+      z.union([z.string(), z.number(), z.boolean(), z.null()]),
+    )
+    .refine((value) => Object.keys(value).length > 0, {
+      message: 'Provide at least one column to update',
+    })
+    .describe('Column name → new value — snapshot columns only, never the PK'),
+});
+
+export class UpdateRecordDto extends createZodDto(UpdateRecordSchema) {}
+
+const UpdatedRecordSchema = z.object({
+  row: RowSchema.describe(
+    'The record after the update, echoed back from the write',
+  ),
+});
+
+export class UpdatedRecordDto extends createZodDto(UpdatedRecordSchema) {}

@@ -27,6 +27,8 @@ export type AuditRecord = {
   durationMs: number;
   status: AuditStatus;
   errorMessage?: string;
+  /** The human who approved a sensitive action (P2 approval flow). */
+  approvedBy?: string;
 };
 
 /**
@@ -58,6 +60,7 @@ export class AuditService {
         durationMs: entry.durationMs,
         status: entry.status,
         errorMessage: entry.errorMessage,
+        approvedBy: entry.approvedBy,
       },
     });
   }

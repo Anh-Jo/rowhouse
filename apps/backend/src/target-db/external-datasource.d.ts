@@ -30,8 +30,15 @@ export type ReadResult = {
   rowCount: number;
 };
 
+export type WriteResult = {
+  /** The persisted row echoed back via `RETURNING` (empty when nothing matched). */
+  rows: unknown[];
+  /** Affected rows — the write path guarantees this is 0 or 1, never more. */
+  rowCount: number;
+};
+
 /**
- * One database engine's read surface. Implementations receive an open
+ * One database engine's read/write surface. Implementations receive an open
  * connection — governance (credential unsealing, role selection, auditing,
  * connection lifecycle) lives in the QueryEngine, never here.
  */
@@ -42,4 +49,15 @@ export interface ExternalDatasource {
     sql: string,
     params: unknown[],
   ): Promise<ReadResult>;
+  /**
+   * Runs a single-record write inside a transaction that commits only when the
+   * statement affected at most one row, and rolls back (throwing
+   * `SingleRowWriteError`) otherwise — the single-record guardrail lives here,
+   * in the execution path.
+   */
+  executeWrite(
+    connection: TargetConnection,
+    sql: string,
+    params: unknown[],
+  ): Promise<WriteResult>;
 }

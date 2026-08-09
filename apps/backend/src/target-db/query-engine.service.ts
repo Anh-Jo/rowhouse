@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditService } from '@/audit/audit.service';
-import type { CredentialRole } from '../generated/prisma/client';
+import type { AuditAction, CredentialRole } from '../generated/prisma/client';
 import type {
   IntrospectedSchema,
   ReadResult,
+  WriteResult,
 } from './external-datasource.d.ts';
 import { PostgresExternalDatasource } from './postgres.external-datasource';
 import { resolveConnectionConfig } from './resolve-connection-config';
@@ -23,15 +24,15 @@ export type ExecutionContext = {
 
 /**
  * THE governed execution path (transverse decisions D2, D3, D4). Every read
- * against a customer database goes through here — humans via the explorer,
- * the agent later via the very same methods. Guarantees, in the execution
- * path and not in any prompt or convention:
+ * and every write against a customer database goes through here — humans via
+ * the explorer, the agent later via the very same methods. Guarantees, in the
+ * execution path and not in any prompt or convention:
  *
  * - workspace scoping: the datasource is resolved through its project's
  *   workspace, so a foreign id 404s exactly like a missing one;
- * - read-only by default: this service only exposes reads, on the READ_ONLY
- *   role's connection (the READ_WRITE role has no code path until P2's
- *   approval flow);
+ * - role separation: reads run on the READ_ONLY role; writes run on the
+ *   READ_WRITE role and only through `executeWrite`, whose datasource-level
+ *   transaction refuses to commit anything but a single-row change;
  * - one audit event per execution, success or failure — written even when
  *   the connection could not be opened.
  */
@@ -46,8 +47,10 @@ export class QueryEngine {
   ) {}
 
   async introspect(context: ExecutionContext): Promise<IntrospectedSchema> {
-    return this.execute(context, 'INTROSPECT', undefined, [], (connection) =>
-      this.postgres.introspect(connection),
+    return this.execute(
+      context,
+      { action: 'INTROSPECT', role: 'READ_ONLY', params: [] },
+      (connection) => this.postgres.introspect(connection),
     );
   }
 
@@ -56,26 +59,60 @@ export class QueryEngine {
     sql: string,
     params: unknown[] = [],
   ): Promise<ReadResult> {
-    return this.execute(context, 'READ', sql, params, (connection) =>
-      this.postgres.executeRead(connection, sql, params),
+    return this.execute(
+      context,
+      { action: 'READ', role: 'READ_ONLY', statement: sql, params },
+      (connection) => this.postgres.executeRead(connection, sql, params),
     );
   }
 
-  private async execute<T extends IntrospectedSchema | ReadResult>(
+  /**
+   * The governed write path (decision D2): the READ_WRITE role's connection
+   * opens only here. The single-row transaction guard lives in the datasource
+   * implementation; this method resolves the datasource through the workspace,
+   * selects the READ_WRITE credential and journals exactly one WRITE event.
+   * `approvedBy` stays undefined until P2's approval flow (slice C) routes an
+   * approved change through here.
+   */
+  async executeWrite(
     context: ExecutionContext,
-    action: 'INTROSPECT' | 'READ',
-    statement: string | undefined,
-    params: unknown[],
+    sql: string,
+    params: unknown[] = [],
+    options: { approvedBy?: string } = {},
+  ): Promise<WriteResult> {
+    return this.execute(
+      context,
+      {
+        action: 'WRITE',
+        role: 'READ_WRITE',
+        statement: sql,
+        params,
+        approvedBy: options.approvedBy,
+      },
+      (connection) => this.postgres.executeWrite(connection, sql, params),
+    );
+  }
+
+  private async execute<
+    T extends IntrospectedSchema | ReadResult | WriteResult,
+  >(
+    context: ExecutionContext,
+    op: {
+      action: AuditAction;
+      role: CredentialRole;
+      statement?: string;
+      params: unknown[];
+      approvedBy?: string;
+    },
     run: (connection: TargetConnection) => Promise<T>,
   ): Promise<T> {
-    const role: CredentialRole = 'READ_ONLY';
     const datasource = await this.prisma.client.datasource.findFirst({
       where: {
         id: context.datasourceId,
         project: { workspaceId: context.workspaceId },
       },
       include: {
-        credentials: { where: { role } },
+        credentials: { where: { role: op.role } },
         direct: true,
         cloudSql: true,
       },
@@ -97,13 +134,14 @@ export class QueryEngine {
         workspaceId: context.workspaceId,
         actorId: context.actorId,
         datasourceId: datasource.id,
-        role,
-        action,
-        statement,
-        params,
+        role: op.role,
+        action: op.action,
+        statement: op.statement,
+        params: op.params,
         rowCount: 'rowCount' in result ? result.rowCount : undefined,
         durationMs: Date.now() - startedAt,
         status: 'OK',
+        approvedBy: op.approvedBy,
       });
       return result;
     } catch (error) {
@@ -111,13 +149,14 @@ export class QueryEngine {
         workspaceId: context.workspaceId,
         actorId: context.actorId,
         datasourceId: datasource.id,
-        role,
-        action,
-        statement,
-        params,
+        role: op.role,
+        action: op.action,
+        statement: op.statement,
+        params: op.params,
         durationMs: Date.now() - startedAt,
         status: 'ERROR',
         errorMessage: error instanceof Error ? error.message : String(error),
+        approvedBy: op.approvedBy,
       });
       throw error;
     } finally {
