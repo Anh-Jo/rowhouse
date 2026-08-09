@@ -226,7 +226,9 @@ describe('DataExplorerPage', () => {
 
     expect(await screen.findByText('hello')).toBeInTheDocument();
     expect(
-      screen.getByText('First page only — this table has no primary key.'),
+      screen.getByText(
+        'No primary key — first page only, and rows cannot be opened individually.',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Load more' }),

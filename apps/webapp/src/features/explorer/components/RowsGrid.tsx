@@ -384,7 +384,8 @@ function RowsGrid({
             </span>
             {!hasPrimaryKey && (
               <span className="rows-grid__notice">
-                First page only — this table has no primary key.
+                No primary key — first page only, and rows cannot be opened
+                individually.
               </span>
             )}
             {rowsQuery.hasNextPage && (

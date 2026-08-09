@@ -24,6 +24,14 @@ type ColumnRow = {
  * membership and single-column foreign keys. System schemas excluded.
  * Multi-column FKs surface as one reference per column, which is the level
  * of detail the explorer's relation navigation needs.
+ *
+ * Constraints are read from `pg_catalog`, NOT from `information_schema`:
+ * the constraint views there are privilege-filtered, and we always connect
+ * as the READ_ONLY role (SELECT and nothing else). Under that role
+ * `information_schema.table_constraints` returns zero rows, so every table
+ * would look primary-key-less — and a table without a PK has no addressable
+ * records (no record page, first page only). `pg_catalog` is readable by
+ * any role, so the snapshot matches the database whatever we connect as.
  */
 const INTROSPECT_SQL = `
   SELECT
@@ -40,13 +48,18 @@ const INTROSPECT_SQL = `
     ON t.table_schema = c.table_schema AND t.table_name = c.table_name
    AND t.table_type = 'BASE TABLE'
   LEFT JOIN (
-    SELECT kcu.table_schema, kcu.table_name, kcu.column_name,
+    -- Every column of a PRIMARY KEY constraint, composite keys included
+    -- (conkey holds one attnum per key column).
+    SELECT nsp.nspname AS table_schema,
+           rel.relname AS table_name,
+           att.attname AS column_name,
            true AS is_primary_key
-    FROM information_schema.table_constraints tc
-    JOIN information_schema.key_column_usage kcu
-      ON kcu.constraint_name = tc.constraint_name
-     AND kcu.table_schema = tc.table_schema
-    WHERE tc.constraint_type = 'PRIMARY KEY'
+    FROM pg_catalog.pg_constraint con
+    JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+    JOIN pg_catalog.pg_namespace nsp ON nsp.oid = rel.relnamespace
+    JOIN pg_catalog.pg_attribute att
+      ON att.attrelid = con.conrelid AND att.attnum = ANY (con.conkey)
+    WHERE con.contype = 'p'
   ) pk ON pk.table_schema = c.table_schema
       AND pk.table_name = c.table_name
       AND pk.column_name = c.column_name
