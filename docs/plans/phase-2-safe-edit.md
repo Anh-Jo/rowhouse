@@ -9,8 +9,8 @@ read) merged, phase 1.5 (connection methods) merged.
 Turn the read-only explorer into a **safe editor**: a user can change one
 record and see it persist, but only through the same governed rails as reads
 — the `READ_WRITE` role opens only here, every write is single-record and
-audited, PII is masked unless the caller may reveal it, and sensitive writes
-wait for a second pair of eyes. Nothing about the trust layer is relaxed to
+audited, and sensitive writes wait for a second pair of eyes. Nothing about
+the trust layer is relaxed to
 make editing possible; the guardrails move into the write path, never into a
 prompt or a convention.
 
@@ -29,11 +29,9 @@ three settled invariants:
    `WHERE` and runs inside a transaction that asserts **exactly one affected
    row** — otherwise it rolls back and audits an ERROR. A safe editor can
    never fan out into a table-wide UPDATE.
-3. **Capability, masking and approval are server-side.** RBAC decides who may
-   write / reveal PII / approve; masking is applied in serialization from the
-   snapshot, not as a client-trimmable field; approval gating is enforced on
-   apply. The agent (P3+) inherits every one of these through the same API
-   (D4).
+3. **Capability and approval are server-side.** RBAC decides who may write and
+   who may approve; approval gating is enforced on apply, never in the UI. The
+   agent (P3+) inherits every one of these through the same API (D4).
 
 Three stacked slices, one concern each.
 
@@ -67,23 +65,17 @@ with write capability may edit — full matrix lands in B).
   a before/after diff preview, react-query mutation with invalidation; the
   edit affordance is absent for read-only members.
 
-### Slice B — RBAC capabilities + PII masking (`feat/safe-edit-rbac`)
+### Slice B — RBAC capabilities (`feat/safe-edit-rbac`)
 
 - **Capability policy** derived from the Better Auth org role already exposed
   as `request.workspaceRole` (owner | admin | member) — a single documented
-  matrix over `{ read, write, revealPii, approve }`. Add
-  `@CurrentWorkspaceRole()` and a `RequireCapability` guard; we do **not**
-  build a bespoke RBAC table (D9 — the org plugin is the backbone).
-- **PII masking**: columns flagged `isPii` in the snapshot are masked in the
-  read serialization (grid + record) for callers without `revealPii`.
-  Masking happens in the target-db/explorer serialization from the snapshot,
-  never as a field the client filters — an unauthorized caller never receives
-  the plaintext. A reveal is itself an audited action.
-- **webapp**: PII values badged and masked with a reveal control shown only
-  to privileged roles; edit/approve affordances gated by capability; a
-  read-only workspace members/roles view.
-- Tests: masking asserted per role on grid and record; reveal audited;
-  every write/approve endpoint rejects an under-privileged caller.
+  matrix over `{ read, write, approve }`. Add `@CurrentWorkspaceRole()` and a
+  `RequireCapability` guard; we do **not** build a bespoke RBAC table (D9 —
+  the org plugin is the backbone).
+- **webapp**: edit/approve affordances gated by capability; a read-only
+  workspace members/roles view.
+- Tests: every write/approve endpoint rejects an under-privileged caller; the
+  capability matrix is asserted per role.
 
 ### Slice C — Four-eyes approvals (`feat/safe-edit-approvals`)
 
@@ -92,9 +84,10 @@ with write capability may edit — full matrix lands in B).
   `status: PENDING | APPROVED | REJECTED | APPLIED`, `requestedBy`,
   `reviewedBy`, timestamps. The proposed write lives here until applied; the
   customer DB is untouched while pending.
-- **Policy**: which writes need approval (baseline: any write touching a
-  `isPii` column; configurable per datasource later). A gated write becomes a
-  PENDING `ChangeRequest` instead of an immediate apply.
+- **Policy**: which writes need approval — a per-datasource "require approval"
+  setting (default off: writes apply directly as in slice A; on: every
+  single-record write is gated). A gated write becomes a PENDING
+  `ChangeRequest` instead of an immediate apply.
 - **Apply**: approval by a **different** member with `approve` (separation of
   duties — requester ≠ approver, enforced server-side) re-validates the row
   hasn't drifted (optimistic check on original values), then applies through
@@ -109,15 +102,22 @@ with write capability may edit — full matrix lands in B).
 
 **Non-goals**: bulk / multi-row edits, INSERT/DELETE of records (single-row
 UPDATE first; add on the same rail after), free-form SQL, per-column
-field-level approval policy UI (baseline policy is code-level in C), agent
-writes (P3+, same API).
+field-level approval policy UI (baseline policy is code-level in C), PII
+masking (deferred — see below), agent writes (P3+, same API).
+
+**Deferred — PII sensitivity & masking.** Read-time masking of sensitive data
+is out of P2. When it lands it will be **table-level** — a table carries a
+sensitivity flag rather than the per-column `isPii` flag — and every access to
+a sensitive table is audited (masking/reveal gated by a capability, the reveal
+itself journaled). The per-column `isPii` badge from P0 stays as plain
+metadata; nothing enforces masking on it until that feature ships.
 
 ## Design decisions (phase-local — candidates to promote to the master list)
 
 - **D13 — Capability policy over org roles, not a new RBAC table.** The
-  `{read, write, revealPii, approve}` matrix is a pure function of the Better
-  Auth org role (D9). Finer-grained Better Auth access-control roles are a
-  later refinement, not a data-model change.
+  `{read, write, approve}` matrix is a pure function of the Better Auth org
+  role (D9). Finer-grained Better Auth access-control roles are a later
+  refinement, not a data-model change.
 - **D14 — Four-eyes on sensitive writes, enforced on apply.** Separation of
   duties (requester ≠ approver) and the single-row transaction guard are the
   two write-side guardrails; both live in the execution path (D2), never in
@@ -126,15 +126,14 @@ writes (P3+, same API).
 ## Manual validation
 
 Against the seeded sample-db, as an admin: open a `customers` record, edit a
-non-PII field, see the diff, apply — the grid reflects it and the audit view
-shows one WRITE on the READ_WRITE role. As a member (read-only): the edit
-affordance is absent and the PATCH endpoint 403s. Flag `customers.email` PII,
-reload as a member: the value is masked with no reveal control; as an admin,
-reveal it and see the reveal audited. Edit `customers.email` as an admin: the
-change lands in the approvals inbox as PENDING; a second admin approves it,
-it applies, and the WRITE event carries `approvedBy`; the requester cannot
-approve their own change. Attempt a hand-crafted UPDATE that would match two
-rows (via a colliding PK fixture): it rolls back and audits ERROR.
+field, see the diff, apply — the grid reflects it and the audit view shows one
+WRITE on the READ_WRITE role. As a member (read-only): the edit affordance is
+absent and the PATCH endpoint 403s. With approvals enabled on the datasource,
+edit a `customers` record as an admin: the change lands in the approvals inbox
+as PENDING; a second admin approves it, it applies, and the WRITE event carries
+`approvedBy`; the requester cannot approve their own change. Attempt a
+hand-crafted UPDATE that would match two rows (via a colliding PK fixture): it
+rolls back and audits ERROR.
 
 ## Gate
 

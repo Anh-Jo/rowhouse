@@ -28,7 +28,7 @@ server / second engine / self-host packaging (P5), billing.
 | 0     | [phase-0-foundation.md](./phase-0-foundation.md)     | `feat/foundation`         | Bootstrap + multi-tenant + datasources + audit core   |
 | 1     | [phase-1-explorer.md](./phase-1-explorer.md)         | `feat/explorer-*`         | Premium read explorer (grid, relations, filters/sort) |
 | 1.5   | [phase-1.5-connectors.md](./phase-1.5-connectors.md) | `feat/connection-methods` | Connection methods (D12): Direct TLS + Cloud SQL IAM  |
-| 2     | [phase-2-safe-edit.md](./phase-2-safe-edit.md)       | `feat/safe-edit`          | Single edit, RBAC, PII masking, approvals             |
+| 2     | [phase-2-safe-edit.md](./phase-2-safe-edit.md)       | `feat/safe-edit`          | Single edit, RBAC, approvals                          |
 | 3+    | planned after V1 feedback                            | —                         | AI analyst, governed agents, MCP, MySQL/MariaDB       |
 
 Each phase plan is written **at the start of its own session**, following the
@@ -118,7 +118,8 @@ already written.
   decision D10; never logged, never serialized).
 - `SchemaTable` / `SchemaColumn` — persisted introspection snapshot
   (relations, PK/FK, types, nullability) + team-editable metadata
-  (description, PII flag — the PII flag feeds P2 masking).
+  (description, PII flag — plain metadata today; sensitivity-based masking is
+  deferred to a later table-level feature with audited reveal, not P2).
 - `AuditEvent` — append-only: actor, workspace, datasource, connection role,
   statement fingerprint + params digest, row count, duration, status,
   `approvedBy` (nullable, used from P2).
